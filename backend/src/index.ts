@@ -81,14 +81,6 @@ app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/export', authenticateToken, exportRoutes);
 app.use('/api/reports', authenticateToken, reportRoutes);
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    message: `The requested endpoint ${req.originalUrl} does not exist.`,
-  });
-});
-
 // Serve static files from React build (for production)
 if (config.nodeEnv === 'production') {
   const buildPath = path.join(__dirname, 'public');
@@ -103,6 +95,14 @@ if (config.nodeEnv === 'production') {
     return res.sendFile(path.join(buildPath, 'index.html'));
   });
 }
+
+// 404 handler for API routes only
+app.use('/api/*', (req, res) => {
+  res.status(404).json({
+    error: 'Route not found',
+    message: `The requested endpoint ${req.originalUrl} does not exist.`,
+  });
+});
 
 // Global error handler
 app.use(errorHandler);
