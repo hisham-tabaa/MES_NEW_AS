@@ -19,14 +19,23 @@ try {
         fs.mkdirSync(prismaDir, { recursive: true });
     }
 
+    // Set the DATABASE_URL for the current process and child processes
+    const env = { ...process.env, DATABASE_URL: process.env.DATABASE_URL };
+
     // Initialize/update database schema
     console.log('Pushing database schema...');
-    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+    execSync('npx prisma db push --accept-data-loss', { 
+        stdio: 'inherit',
+        env: env
+    });
 
     // Try to seed the database
     console.log('Attempting to seed database...');
     try {
-        execSync('npx prisma db seed', { stdio: 'inherit' });
+        execSync('npx prisma db seed', { 
+            stdio: 'inherit',
+            env: env
+        });
         console.log('Database seeded successfully');
     } catch (seedError) {
         console.log('Database seeding skipped or failed (this might be normal if data already exists)');
@@ -35,7 +44,10 @@ try {
 
     // Start the application
     console.log('Starting the application...');
-    execSync('npm start', { stdio: 'inherit' });
+    execSync('npm start', { 
+        stdio: 'inherit',
+        env: env
+    });
 
 } catch (error) {
     console.error('Deployment failed:', error.message);
