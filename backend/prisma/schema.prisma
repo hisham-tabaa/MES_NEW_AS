@@ -1,0 +1,187 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Note: SQLite doesn't support enums, so we use String fields with constraints
+
+model Department {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  managerId   Int?     @unique
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  manager     User?     @relation("DepartmentManager", fields: [managerId], references: [id])
+  users       User[]    @relation("UserDepartment")
+  products    Product[]
+  requests    Request[]
+
+  @@map("departments")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  role         String
+  departmentId Int?
+  isActive     Boolean  @default(true)
+  preferredCurrency String @default("SYP")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  department           Department?       @relation("UserDepartment", fields: [departmentId], references: [id])
+  managedDepartment    Department?       @relation("DepartmentManager")
+  receivedRequests     Request[]         @relation("ReceivedBy")
+  assignedRequests     Request[]         @relation("AssignedTechnician")
+  activities           RequestActivity[]
+  costsAdded          RequestCost[]
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  email     String?
+  address   String
+  city      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  requests Request[]
+
+  @@map("customers")
+}
+
+model Product {
+  id             Int    @id @default(autoincrement())
+  name           String
+  model          String
+  serialNumber   String? @unique
+  category       String
+  departmentId   Int
+  warrantyMonths Int    @default(12)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  department Department @relation(fields: [departmentId], references: [id])
+  requests   Request[]
+
+  @@map("products")
+}
+
+model Request {
+  id                   Int               @id @default(autoincrement())
+  requestNumber        String            @unique
+  customerId           Int
+  productId            Int?
+  departmentId         Int
+  assignedTechnicianId Int?
+  receivedById         Int
+
+  // Request details
+  issueDescription     String
+  executionMethod      String
+  warrantyStatus       String
+  purchaseDate         DateTime?
+
+  // Status management
+  status               String            @default("NEW")
+  priority             String            @default("NORMAL")
+
+  // SLA tracking
+  createdAt            DateTime          @default(now())
+  assignedAt           DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  closedAt             DateTime?
+  slaDueDate           DateTime?
+  isOverdue            Boolean           @default(false)
+
+  // Final details
+  finalNotes           String?
+  customerSatisfaction Int?
+
+  updatedAt            DateTime          @updatedAt
+
+  // Relations
+  customer             Customer          @relation(fields: [customerId], references: [id])
+  product              Product?          @relation(fields: [productId], references: [id])
+  department           Department        @relation(fields: [departmentId], references: [id])
+  assignedTechnician   User?             @relation("AssignedTechnician", fields: [assignedTechnicianId], references: [id])
+  receivedBy           User              @relation("ReceivedBy", fields: [receivedById], references: [id])
+  activities           RequestActivity[]
+  costs                RequestCost[]
+  notifications        Notification[]
+
+  @@map("requests")
+}
+
+model RequestActivity {
+  id           Int          @id @default(autoincrement())
+  requestId    Int
+  userId       Int
+  activityType String
+  description  String
+  oldValue     String?
+  newValue     String?
+  createdAt    DateTime     @default(now())
+
+  // Relations
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("request_activities")
+}
+
+model RequestCost {
+  id          Int      @id @default(autoincrement())
+  requestId   Int
+  description String
+  amount      Float
+  costType    String
+  currency    String   @default("SYP")
+  addedById   Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  addedBy User    @relation(fields: [addedById], references: [id])
+
+  @@map("request_costs")
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  requestId Int?
+  title     String
+  message   String
+  type      String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request Request? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
