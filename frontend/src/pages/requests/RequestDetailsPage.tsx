@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { requestsAPI, usersAPI } from '../../services/api';
 import { AddCostForm, CloseRequestForm, CostType, Request, RequestStatus, REQUEST_STATUS_LABELS } from '../../types';
@@ -23,7 +23,7 @@ const RequestDetailsPage: React.FC = () => {
   const [costForm, setCostForm] = useState<AddCostForm>({ description: '', amount: 0, costType: 'PARTS', currency: getCurrentCurrency() });
   const [closeForm, setCloseForm] = useState<CloseRequestForm>({ finalNotes: '', customerSatisfaction: undefined });
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -34,7 +34,7 @@ const RequestDetailsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [requestId, t]);
 
   useEffect(() => {
     if (!requestId) return;

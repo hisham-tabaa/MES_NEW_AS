@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usersAPI, departmentsAPI } from '../../services/api';
 import { User, Department, UserRole } from '../../types';
@@ -23,7 +23,7 @@ const UsersPage: React.FC = () => {
     TECHNICIAN: 'فني',
   };
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -39,7 +39,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   const loadDepartments = async () => {
     try {

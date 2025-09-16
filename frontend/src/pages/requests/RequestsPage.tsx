@@ -83,7 +83,7 @@ const RequestsPage: React.FC = () => {
       }
     };
     load();
-  }, [params]);
+  }, [params, t]);
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
