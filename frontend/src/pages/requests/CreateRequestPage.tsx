@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersAPI, productsAPI, requestsAPI } from '../../services/api';
-import { CreateRequestForm, Customer, ExecutionMethod, Product, RequestPriority, WarrantyStatus, EXECUTION_METHOD_LABELS, PRIORITY_LABELS, WARRANTY_STATUS_LABELS } from '../../types';
+import { CreateRequestForm, Customer, Product } from '../../types';
 import { useI18n } from '../../contexts/I18nContext';
-import { SYRIAN_CITIES } from '../../utils/currency';
+// import { SYRIAN_CITIES } from '../../utils/currency';
 
 const CreateRequestPage: React.FC = () => {
   const { t } = useI18n();
@@ -40,7 +40,7 @@ const CreateRequestPage: React.FC = () => {
       }
     };
     load();
-  }, []);
+  }, [t]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

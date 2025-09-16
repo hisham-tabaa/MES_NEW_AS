@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { departmentsAPI } from '../../services/api';
 import { Department, UserRole } from '../../types';
-import { useI18n } from '../../contexts/I18nContext';
+// import { useI18n } from '../../contexts/I18nContext';
 
 interface CreateUserForm {
   username: string;
@@ -16,7 +16,6 @@ interface CreateUserForm {
 }
 
 const CreateUserPage: React.FC = () => {
-  const { t } = useI18n();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

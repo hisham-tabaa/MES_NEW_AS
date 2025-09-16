@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useI18n } from '../contexts/I18nContext';
+// import { useI18n } from '../contexts/I18nContext';
 import { 
   BellIcon, 
   CheckIcon, 
@@ -21,7 +21,6 @@ interface Notification {
 }
 
 const NotificationsPage: React.FC = () => {
-  const { t } = useI18n();
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: 1,

@@ -2,10 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usersAPI, departmentsAPI } from '../../services/api';
 import { User, Department, UserRole } from '../../types';
-import { useI18n } from '../../contexts/I18nContext';
+// import { useI18n } from '../../contexts/I18nContext';
 
 const UsersPage: React.FC = () => {
-  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -57,7 +56,7 @@ const UsersPage: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
-  }, [filters]);
+  }, [filters, loadUsers]);
 
   const handleToggleActive = async (userId: number, isActive: boolean) => {
     try {

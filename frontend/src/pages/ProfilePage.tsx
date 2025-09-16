@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useI18n } from '../contexts/I18nContext';
+// import { useI18n } from '../contexts/I18nContext';
 import { 
   UserCircleIcon, 
   EnvelopeIcon, 
-  PhoneIcon, 
   BuildingOfficeIcon,
   KeyIcon,
   CheckCircleIcon,
@@ -26,7 +25,6 @@ interface PasswordForm {
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');

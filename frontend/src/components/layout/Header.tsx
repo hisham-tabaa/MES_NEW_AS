@@ -13,10 +13,6 @@ import {
 import { clsx } from 'clsx';
 import CurrencySelector from '../common/CurrencySelector';
 
-interface HeaderProps {
-  setSidebarOpen: (open: boolean) => void;
-}
-
 export default function Header(props: any) {
   const { lang, setLang } = useI18n();
   const [, setTick] = useState(0);

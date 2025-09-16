@@ -66,7 +66,7 @@ const RequestsPage: React.FC = () => {
       }
     };
     loadOptions();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const load = async () => {

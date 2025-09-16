@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { customersAPI } from '../../services/api';
 import { Customer } from '../../types';
 import { useI18n } from '../../contexts/I18nContext';
-import { SYRIAN_CITIES, validateSyrianPhone } from '../../utils/currency';
+import { SYRIAN_CITIES } from '../../utils/currency';
 
 const CustomersPage: React.FC = () => {
   const { t } = useI18n();

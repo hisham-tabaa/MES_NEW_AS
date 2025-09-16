@@ -3,14 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { requestsAPI, usersAPI } from '../../services/api';
 import { AddCostForm, CloseRequestForm, CostType, Request, RequestStatus, REQUEST_STATUS_LABELS } from '../../types';
 import { useI18n } from '../../contexts/I18nContext';
-import { formatCurrency, getCurrencySymbol, getCurrentCurrency } from '../../utils/currency';
+import { formatCurrency, getCurrentCurrency } from '../../utils/currency';
 import { useCurrency } from '../../hooks/useCurrency';
 
 const RequestDetailsPage: React.FC = () => {
   const { t } = useI18n();
   const { id } = useParams();
   const requestId = Number(id);
-  const { formatCurrency: formatCurrencyHook, getCurrencySymbol: getCurrencySymbolHook } = useCurrency();
+  const { getCurrencySymbol: getCurrencySymbolHook } = useCurrency();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ const RequestDetailsPage: React.FC = () => {
   useEffect(() => {
     if (!requestId) return;
     reload();
-  }, [requestId]);
+  }, [requestId, reload]);
 
   useEffect(() => {
     const loadTechs = async () => {

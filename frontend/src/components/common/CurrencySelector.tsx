@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CURRENCIES, CurrencyCode, getCurrentCurrency, setCurrentCurrency, getCurrencyNameAr } from '../../utils/currency';
+import { CURRENCIES, CurrencyCode, getCurrentCurrency, setCurrentCurrency } from '../../utils/currency';
 
 interface CurrencySelectorProps {
   className?: string;
