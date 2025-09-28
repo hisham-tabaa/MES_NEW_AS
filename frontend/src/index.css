@@ -1,3 +1,21 @@
+/* 
+ * After-Sales Management System - Main Stylesheet
+ * 
+ * This file contains Tailwind CSS directives and custom styles.
+ * Tailwind directives (@tailwind, @apply, @layer) are processed by PostCSS.
+ * 
+ * Browser Compatibility:
+ * - Chrome 84+, Firefox 78+, Safari 14+, Edge 84+
+ * - Progressive enhancement for newer CSS features
+ * - Fallbacks provided for older browsers
+ */
+
+/* Import custom status styles */
+@import './styles/status.css';
+
+/* Disable stylelint warnings for Tailwind CSS directives */
+/* stylelint-disable at-rule-no-unknown, property-no-unknown */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -17,10 +35,29 @@
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105;
   }
+
+  /* Remove arrows from number inputs */
+  .no-arrows::-webkit-outer-spin-button,
+  .no-arrows::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+
+  .no-arrows[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
   
   .btn-secondary {
     @apply inline-flex items-center justify-center rounded-lg bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-md border border-gray-300 hover:bg-gray-50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105;
   }
+
+  /* Test App Styles */
+  .simple-test-container {
+    @apply p-5 bg-blue-200 min-h-screen;
+  }
+
   
   .btn-danger {
     @apply inline-flex items-center justify-center rounded-lg bg-red-600 px-6 py-3 text-sm font-medium text-white shadow-md hover:bg-red-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105;
@@ -149,12 +186,32 @@
 
 @layer utilities {
   .text-balance {
+    /* Fallback for older browsers */
+    word-wrap: break-word;
+    -webkit-hyphens: auto; /* Safari iOS 4.2+ */
+    hyphens: auto;
+    /* Modern browsers */
     text-wrap: balance;
   }
   
+  /* Feature detection for text-wrap support */
+  @supports (text-wrap: balance) {
+    .text-balance {
+      text-wrap: balance;
+    }
+  }
+  
   .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    -ms-overflow-style: none; /* IE and Edge */
+    /* Fallback for older browsers */
+    overflow: -moz-scrollbars-none;
+  }
+  
+  /* Feature detection for scrollbar-width support */
+  @supports (scrollbar-width: none) {
+    .scrollbar-hide {
+      scrollbar-width: none; /* Firefox */
+    }
   }
   
   .scrollbar-hide::-webkit-scrollbar {
@@ -205,6 +262,7 @@
   .shadow-medium {
     box-shadow: 0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   }
+  /* stylelint-enable at-rule-no-unknown */
 }
 
 /* RTL adjustments */
@@ -278,6 +336,7 @@ html[dir='rtl'] p, html[dir='rtl'] span, html[dir='rtl'] div {
 }
 
 /* Logo styles */
+/* stylelint-disable at-rule-no-unknown */
 .logo-container {
   @apply flex items-center transition-all duration-200;
 }
@@ -290,6 +349,7 @@ html[dir='rtl'] p, html[dir='rtl'] span, html[dir='rtl'] div {
   @apply transition-all duration-300;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
+/* stylelint-enable at-rule-no-unknown */
 
 .logo-image:hover {
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
@@ -349,6 +409,7 @@ html[dir='rtl'] p, html[dir='rtl'] span, html[dir='rtl'] div {
 
 /* Responsive improvements */
 @media (max-width: 768px) {
+  /* stylelint-disable at-rule-no-unknown */
   .card-content {
     @apply px-4 py-4;
   }
@@ -368,6 +429,7 @@ html[dir='rtl'] p, html[dir='rtl'] span, html[dir='rtl'] div {
   .form-group {
     @apply mb-4;
   }
+  /* stylelint-enable at-rule-no-unknown */
 }
 
 /* Animation improvements */

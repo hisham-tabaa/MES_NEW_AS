@@ -12,12 +12,33 @@ const prisma = new PrismaClient();
  * @access  Private
  */
 router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+
+  // Build where clause based on user role
+  let whereClause: any = {};
+
+  if (user.role === 'TECHNICIAN') {
+    // Technicians can only see their assigned requests or ones they received
+    whereClause.OR = [
+      { assignedTechnicianId: user.id },
+      { receivedById: user.id },
+    ];
+  } else if (user.role === 'SECTION_SUPERVISOR' || user.role === 'DEPARTMENT_MANAGER') {
+    // Department-level access
+    whereClause.departmentId = user.departmentId;
+  }
+  // Company and deputy managers can see all requests (no additional filter)
+
   // Get total requests
-  const totalRequests = await prisma.request.count();
+  const totalRequests = await prisma.request.count({ where: whereClause });
   
   // Get pending requests (not completed or closed)
   const pendingRequests = await prisma.request.count({
     where: {
+      ...whereClause,
       status: {
         notIn: ['COMPLETED', 'CLOSED']
       }
@@ -27,6 +48,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   // Get overdue requests
   const overdueRequests = await prisma.request.count({
     where: {
+      ...whereClause,
       isOverdue: true,
       status: {
         notIn: ['COMPLETED', 'CLOSED']
@@ -37,6 +59,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   // Get completed requests
   const completedRequests = await prisma.request.count({
     where: {
+      ...whereClause,
       status: 'COMPLETED'
     }
   });
@@ -44,12 +67,14 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   // Get warranty stats
   const underWarranty = await prisma.request.count({
     where: {
+      ...whereClause,
       warrantyStatus: 'UNDER_WARRANTY'
     }
   });
   
   const outOfWarranty = await prisma.request.count({
     where: {
+      ...whereClause,
       warrantyStatus: 'OUT_OF_WARRANTY'
     }
   });
@@ -57,6 +82,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   // Get requests by department
   const requestsByDepartment = await prisma.request.groupBy({
     by: ['departmentId'],
+    where: whereClause,
     _count: {
       id: true
     }
@@ -73,6 +99,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   // Get requests by status
   const requestsByStatus = await prisma.request.groupBy({
     by: ['status'],
+    where: whereClause,
     _count: {
       id: true
     }
@@ -81,6 +108,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   // Calculate average resolution time (for completed requests)
   const completedRequestsWithTime = await prisma.request.findMany({
     where: {
+      ...whereClause,
       status: 'COMPLETED',
       completedAt: { not: null }
     },
@@ -109,6 +137,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
       customerSatisfaction: true
     },
     where: {
+      ...whereClause,
       customerSatisfaction: { not: null }
     }
   });
@@ -136,7 +165,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
     customerSatisfactionAverage: satisfactionData._avg.customerSatisfaction || 0
   };
   
-  res.json({
+  return res.json({
     success: true,
     data: stats
   });

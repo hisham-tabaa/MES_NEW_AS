@@ -6,7 +6,8 @@ export enum UserRole {
   DEPUTY_MANAGER = 'DEPUTY_MANAGER',
   DEPARTMENT_MANAGER = 'DEPARTMENT_MANAGER',
   SECTION_SUPERVISOR = 'SECTION_SUPERVISOR',
-  TECHNICIAN = 'TECHNICIAN'
+  TECHNICIAN = 'TECHNICIAN',
+  WAREHOUSE_KEEPER = 'WAREHOUSE_KEEPER'
 }
 
 export enum RequestStatus {
@@ -56,7 +57,10 @@ export enum NotificationType {
   ASSIGNMENT = 'ASSIGNMENT',
   OVERDUE = 'OVERDUE',
   STATUS_CHANGE = 'STATUS_CHANGE',
-  COMPLETION = 'COMPLETION'
+  COMPLETION = 'COMPLETION',
+  READ_RECEIPT = 'READ_RECEIPT',
+  WAREHOUSE_UPDATE = 'WAREHOUSE_UPDATE',
+  PRODUCT_ADDED = 'PRODUCT_ADDED'
 }
 
 // Extend Express Request type to include user
@@ -65,6 +69,8 @@ export interface AuthenticatedRequest extends Request {
     id: number;
     username: string;
     email: string;
+    firstName?: string;
+    lastName?: string;
     role: UserRole;
     departmentId?: number;
   };
@@ -160,7 +166,8 @@ export interface NotificationData {
   requestId?: number;
   title: string;
   message: string;
-  type: 'ASSIGNMENT' | 'OVERDUE' | 'STATUS_CHANGE' | 'COMPLETION';
+  type: NotificationType;
+  createdById?: number;
 }
 
 // Error types

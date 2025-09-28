@@ -7,6 +7,16 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { I18nProvider } from './contexts/I18nContext';
 
+// Debug logging (can be removed in production)
+console.log('React app starting...');
+
+// Debug function to clear localStorage (for development)
+(window as any).clearAuthStorage = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  console.log('Authentication storage cleared. Reload the page to see login.');
+};
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,9 +28,14 @@ const queryClient = new QueryClient({
   },
 });
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  console.error('Root element not found!');
+  throw new Error('Root element not found');
+}
+
+const root = ReactDOM.createRoot(rootElement);
 
 root.render(
   <React.StrictMode>

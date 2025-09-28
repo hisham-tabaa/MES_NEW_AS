@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customersAPI, productsAPI, requestsAPI } from '../../services/api';
-import { CreateRequestForm, Customer, Product } from '../../types';
+import { CreateRequestForm, Customer, Product, UserRole } from '../../types';
 import { useI18n } from '../../contexts/I18nContext';
+import { useAuth } from '../../contexts/AuthContext';
 // import { SYRIAN_CITIES } from '../../utils/currency';
 
 const CreateRequestPage: React.FC = () => {
   const { t } = useI18n();
+  const { hasRole } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,20 @@ const CreateRequestPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Check for backdated purchase date (only managers can set backdated dates)
+      if (form.purchaseDate && !hasRole([UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER])) {
+        const purchaseDate = new Date(form.purchaseDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        if (purchaseDate < today) {
+          setError('لا يمكن إدخال تاريخ شراء سابق. فقط المديرين يمكنهم إدخال تواريخ سابقة.');
+          setLoading(false);
+          return;
+        }
+      }
+      
       const payload = {
         ...form,
         customerId: Number(form.customerId),
@@ -77,8 +93,8 @@ const CreateRequestPage: React.FC = () => {
 
       <div className="card shadow-medium">
         <div className="card-header">
-          <h2>معلومات الطلب</h2>
-          <p>يرجى ملء جميع الحقول المطلوبة</p>
+          <h2>{t('create.cardTitle') || 'Request Information'}</h2>
+          <p>{t('create.cardSubtitle') || 'Please fill in all required fields'}</p>
         </div>
         <form className="card-content space-y-6" onSubmit={handleSubmit}>
           {error && (
@@ -91,9 +107,9 @@ const CreateRequestPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="form-group">
-              <label className="form-label required">{t('create.customer') || 'العميل'}</label>
-              <select name="customerId" value={form.customerId} onChange={handleChange} className="select-field" required>
-                <option value="" disabled>اختر العميل...</option>
+              <label className="form-label required" id="customerId-label" htmlFor="customerId">{t('create.customer')}</label>
+              <select id="customerId" name="customerId" value={form.customerId} onChange={handleChange} className="select-field" required aria-labelledby="customerId-label">
+                <option value="" disabled>{t('create.customerPlaceholder')}</option>
                 {customers.map(c => (
                   <option key={c.id} value={c.id}>{c.name} — {c.phone}</option>
                 ))}
@@ -101,9 +117,9 @@ const CreateRequestPage: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t('create.product') || 'المنتج'}</label>
-              <select name="productId" value={form.productId || ''} onChange={handleChange} className="select-field">
-                <option value="">اختر المنتج (اختياري)...</option>
+              <label className="form-label" id="productId-label" htmlFor="productId">{t('create.product')}</label>
+              <select id="productId" name="productId" value={form.productId || ''} onChange={handleChange} className="select-field" aria-labelledby="productId-label">
+                <option value="">{t('create.productPlaceholder') || 'Select a product (optional)...'}</option>
                 {products.map(p => (
                   <option key={p.id} value={p.id}>{p.name} — {p.model}</option>
                 ))}
@@ -111,42 +127,55 @@ const CreateRequestPage: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label required">{t('create.executionMethod') || 'طريقة التنفيذ'}</label>
-              <select name="executionMethod" value={form.executionMethod} onChange={handleChange} className="select-field" required>
-                <option value="ON_SITE">زيارة موقعية</option>
-                <option value="WORKSHOP">ورشة</option>
+              <label className="form-label required" id="executionMethod-label" htmlFor="executionMethod">{t('create.executionMethod') || 'طريقة التنفيذ'}</label>
+              <select id="executionMethod" name="executionMethod" value={form.executionMethod} onChange={handleChange} className="select-field" required aria-labelledby="executionMethod-label">
+                <option value="ON_SITE">{t('create.executionOnsite') || 'On-site visit'}</option>
+                <option value="WORKSHOP">{t('create.executionWorkshop') || 'Workshop'}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label required">{t('create.warrantyStatus') || 'حالة الكفالة'}</label>
-              <select name="warrantyStatus" value={form.warrantyStatus} onChange={handleChange} className="select-field" required>
-                <option value="UNDER_WARRANTY">ضمن الكفالة</option>
-                <option value="OUT_OF_WARRANTY">خارج الكفالة</option>
+              <label className="form-label required" id="warrantyStatus-label" htmlFor="warrantyStatus">{t('create.warrantyStatus') || 'حالة الكفالة'}</label>
+              <select id="warrantyStatus" name="warrantyStatus" value={form.warrantyStatus} onChange={handleChange} className="select-field" required aria-labelledby="warrantyStatus-label">
+                <option value="UNDER_WARRANTY">{t('create.warrantyUnder') || 'Under warranty'}</option>
+                <option value="OUT_OF_WARRANTY">{t('create.warrantyOut') || 'Out of warranty'}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label required">{t('create.priority') || 'الأولوية'}</label>
-              <select name="priority" value={form.priority} onChange={handleChange} className="select-field" required>
-                <option value="LOW">منخفضة</option>
-                <option value="NORMAL">عادية</option>
-                <option value="HIGH">عالية</option>
-                <option value="URGENT">عاجلة</option>
+              <label className="form-label required" id="priority-label" htmlFor="priority">{t('create.priority') || 'الأولوية'}</label>
+              <select id="priority" name="priority" value={form.priority} onChange={handleChange} className="select-field" required aria-labelledby="priority-label">
+                <option value="LOW">{t('create.priorityLow') || 'Low'}</option>
+                <option value="NORMAL">{t('create.priorityNormal') || 'Normal'}</option>
+                <option value="HIGH">{t('create.priorityHigh') || 'High'}</option>
+                <option value="URGENT">{t('create.priorityUrgent') || 'Urgent'}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t('create.purchaseDate') || 'تاريخ الشراء'}</label>
-              <input type="date" name="purchaseDate" value={form.purchaseDate} onChange={handleChange} className="input-field" />
-              <p className="form-help">تاريخ شراء المنتج (اختياري)</p>
+              <label className="form-label" htmlFor="purchaseDate">{t('create.purchaseDate') || 'Purchase Date (optional)'}</label>
+              <input 
+                id="purchaseDate" 
+                type="date" 
+                name="purchaseDate" 
+                value={form.purchaseDate} 
+                onChange={handleChange} 
+                className="input-field"
+                max={hasRole([UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER]) ? undefined : new Date().toISOString().split('T')[0]}
+              />
+              <p className="form-help">
+                {hasRole([UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER]) 
+                  ? 'تاريخ شراء المنتج (اختياري) - المديرين يمكنهم إدخال تواريخ سابقة'
+                  : 'تاريخ شراء المنتج (اختياري) - لا يمكن إدخال تاريخ سابق'
+                }
+              </p>
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label required">{t('create.issue') || 'وصف المشكلة'}</label>
-            <textarea name="issueDescription" value={form.issueDescription} onChange={handleChange} className="textarea-field" rows={5} required placeholder="اشرح المشكلة بالتفصيل..." />
-            <p className="form-help">وصف مفصل للمشكلة أو الخدمة المطلوبة</p>
+            <label className="form-label required" htmlFor="issueDescription">{t('create.issue') || 'Issue description'}</label>
+            <textarea id="issueDescription" name="issueDescription" value={form.issueDescription} onChange={handleChange} className="textarea-field" rows={5} required placeholder={t('create.issue.placeholder') || 'Describe the issue...'} />
+            <p className="form-help">{t('create.issueHelp') || 'Provide detailed information about the issue or required service'}</p>
           </div>
 
           <div className="card-footer bg-gradient-to-r from-gray-50 to-white">

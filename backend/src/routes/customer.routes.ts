@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../index';
-import { ApiResponse, ValidationError } from '../types';
+import { ApiResponse, ValidationError, AuthenticatedRequest, UserRole } from '../types';
+import { authenticateToken, requireRoles } from '../middleware/auth';
 
 const router = Router();
 
@@ -9,8 +10,9 @@ const router = Router();
  * @desc    Get all customers with optional search and pagination
  * @access  Private
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req: AuthenticatedRequest, res) => {
   const { page = 1, limit = 20, search } = req.query as any;
+  const user = req.user!;
 
   const where: any = {};
   if (search) {
@@ -22,10 +24,35 @@ router.get('/', async (req, res) => {
     ];
   }
 
+  // If user is a technician, only show customers who have requests assigned to this technician
+  if (user.role === 'TECHNICIAN') {
+    where.requests = {
+      some: {
+        assignedTechnicianId: user.id
+      }
+    };
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
 
   const [customers, total] = await Promise.all([
-    prisma.customer.findMany({ where, skip, take: Number(limit), orderBy: { createdAt: 'desc' } }),
+    prisma.customer.findMany({ 
+      where, 
+      skip, 
+      take: Number(limit), 
+      orderBy: { createdAt: 'desc' },
+      include: {
+        requests: {
+          where: user.role === 'TECHNICIAN' ? { assignedTechnicianId: user.id } : undefined,
+          select: {
+            id: true,
+            requestNumber: true,
+            status: true,
+            createdAt: true
+          }
+        }
+      }
+    }),
     prisma.customer.count({ where }),
   ]);
 
@@ -41,9 +68,9 @@ router.get('/', async (req, res) => {
 /**
  * @route   POST /api/customers
  * @desc    Create new customer
- * @access  Private
+ * @access  Private (Managers and Supervisors only)
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, requireRoles([UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR]), async (req: AuthenticatedRequest, res) => {
   const { name, phone, email, address, city } = req.body;
 
   if (!name || !phone || !address) {

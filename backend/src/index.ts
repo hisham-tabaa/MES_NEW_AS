@@ -24,6 +24,9 @@ import requestRoutes from './routes/request.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import reportRoutes from './routes/report.routes';
 import { exportRoutes } from './routes/export.routes';
+import storageRoutes from './routes/storage.routes';
+import requestPartsRoutes from './routes/request-parts.routes';
+import statusRoutes from './routes/status.routes';
 
 // Initialize Prisma Client
 export const prisma = new PrismaClient();
@@ -35,8 +38,17 @@ app.use(helmet());
 
 // Trust proxy to avoid express-rate-limit X-Forwarded-For errors behind dev proxy
 app.set('trust proxy', 1);
+const corsWhitelist = [
+  config.corsOrigin,
+  'http://127.0.0.1:3000',
+  'http://localhost:3000',
+];
 app.use(cors({
-  origin: config.corsOrigin,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (corsWhitelist.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 
@@ -80,6 +92,9 @@ app.use('/api/requests', authenticateToken, requestRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/export', authenticateToken, exportRoutes);
 app.use('/api/reports', authenticateToken, reportRoutes);
+app.use('/api/storage', authenticateToken, storageRoutes);
+app.use('/api/request-parts', authenticateToken, requestPartsRoutes);
+app.use('/api/statuses', authenticateToken, statusRoutes);
 
 // Serve static files from React build (for production)
 if (config.nodeEnv === 'production') {

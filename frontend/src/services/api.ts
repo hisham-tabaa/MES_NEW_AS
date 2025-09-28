@@ -1,9 +1,11 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
-import { ApiResponse, LoginResponse, Request, DashboardStats } from '../types';
+import { ApiResponse, LoginResponse, Request, DashboardStats, CustomRequestStatus } from '../types';
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+    ? 'http://127.0.0.1:3001/api'
+    : '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,10 +32,22 @@ api.interceptors.response.use(
   },
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Only redirect to login if we're not already on the login page
+      const currentPath = window.location.pathname;
+      
+      // Don't redirect if this is an auth verification request (token check)
+      const isAuthVerification = error.config?.url?.includes('/auth/verify') || 
+                                error.config?.url?.includes('/auth/profile');
+      
+      if (!isAuthVerification) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (!currentPath.startsWith('/login')) {
+          // Preserve path for post-login return
+          sessionStorage.setItem('postLoginRedirect', currentPath + window.location.search);
+          window.location.href = '/login';
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -50,6 +64,10 @@ const handleResponse = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 // Generic error handler
 const handleError = (error: any): never => {
   if (error.response?.data?.message) {
+    // Handle specific error codes
+    if (error.response.status === 403) {
+      throw new Error('No permissions. Please consult your administrator.');
+    }
     throw new Error(error.response.data.message);
   } else if (error.message) {
     throw new Error(error.message);
@@ -62,9 +80,12 @@ const handleError = (error: any): never => {
 export const authAPI = {
   login: async (username: string, password: string): Promise<LoginResponse> => {
     try {
+      console.log('Making login API call to:', api.defaults.baseURL + '/auth/login');
       const response = await api.post<ApiResponse<LoginResponse>>('/auth/login', { username, password });
+      console.log('API response:', response);
       return handleResponse<LoginResponse>(response);
     } catch (error) {
+      console.error('API error:', error);
       throw handleError(error);
     }
   },
@@ -111,6 +132,39 @@ export const authAPI = {
       return handleResponse(response);
     } catch (error) {
       handleError(error);
+    }
+  },
+  getNotifications: async (params?: { page?: number; limit?: number; unreadOnly?: boolean }) => {
+    try {
+      const response = await api.get('/auth/notifications', { params });
+      return handleResponse(response);
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
+  markNotificationRead: async (id: number) => {
+    try {
+      const response = await api.post(`/auth/notifications/${id}/read`);
+      return handleResponse(response);
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
+  markAllNotificationsRead: async () => {
+    try {
+      const response = await api.post('/auth/notifications/read-all');
+      return handleResponse(response);
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
+  
+  restoreAdmin: async () => {
+    try {
+      const response = await api.post('/auth/restore-admin');
+      return handleResponse(response);
+    } catch (error) {
+      throw handleError(error);
     }
   },
 };
@@ -177,6 +231,54 @@ export const requestsAPI = {
       return handleResponse(response);
     } catch (error) {
       handleError(error);
+    }
+  },
+};
+
+// Status API
+export const statusAPI = {
+  getCustomStatuses: async (): Promise<{ statuses: CustomRequestStatus[] }> => {
+    try {
+      const response = await api.get('/statuses');
+      return handleResponse<{ statuses: CustomRequestStatus[] }>(response);
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
+
+  getCustomStatusById: async (id: number): Promise<{ status: CustomRequestStatus }> => {
+    try {
+      const response = await api.get(`/statuses/${id}`);
+      return handleResponse<{ status: CustomRequestStatus }>(response);
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
+
+  createCustomStatus: async (data: Partial<CustomRequestStatus>) => {
+    try {
+      const response = await api.post('/statuses', data);
+      return handleResponse(response);
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
+
+  updateCustomStatus: async (id: number, data: Partial<CustomRequestStatus>) => {
+    try {
+      const response = await api.put(`/statuses/${id}`, data);
+      return handleResponse(response);
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
+
+  deleteCustomStatus: async (id: number) => {
+    try {
+      const response = await api.delete(`/statuses/${id}`);
+      return handleResponse(response);
+    } catch (error) {
+      throw handleError(error);
     }
   },
 };
@@ -258,6 +360,15 @@ export const usersAPI = {
   updateUser: async (id: number, userData: any) => {
     try {
       const response = await api.put(`/users/${id}`, userData);
+      return response.data;
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+  
+  deleteUser: async (id: number) => {
+    try {
+      const response = await api.delete(`/users/${id}`);
       return response.data;
     } catch (error) {
       return Promise.reject(handleError(error));
@@ -366,6 +477,111 @@ export const reportsAPI = {
       return response.data;
     } catch (error) {
       handleError(error);
+    }
+  },
+};
+
+// Storage API
+export const storageAPI = {
+  getSpareParts: async (params?: any) => {
+    try {
+      const response = await api.get('/storage', { params });
+      return response.data;
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  getSparePartById: async (id: number) => {
+    try {
+      const response = await api.get(`/storage/${id}`);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  createSparePart: async (data: any) => {
+    try {
+      const response = await api.post('/storage', data);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  updateSparePart: async (id: number, data: any) => {
+    try {
+      const response = await api.put(`/storage/${id}`, data);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  deleteSparePart: async (id: number) => {
+    try {
+      const response = await api.delete(`/storage/${id}`);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  getCategories: async () => {
+    try {
+      const response = await api.get('/storage/categories');
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  adjustQuantity: async (id: number, adjustment: number, reason?: string) => {
+    try {
+      const response = await api.post(`/storage/${id}/adjust-quantity`, { adjustment, reason });
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+};
+
+// Request Parts API
+export const requestPartsAPI = {
+  getRequestParts: async (requestId: number) => {
+    try {
+      const response = await api.get(`/request-parts/${requestId}`);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  addPartToRequest: async (data: any) => {
+    try {
+      const response = await api.post('/request-parts', data);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  updateRequestPart: async (id: number, data: any) => {
+    try {
+      const response = await api.put(`/request-parts/${id}`, data);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
+    }
+  },
+
+  removePartFromRequest: async (id: number) => {
+    try {
+      const response = await api.delete(`/request-parts/${id}`);
+      return handleResponse(response);
+    } catch (error) {
+      return Promise.reject(handleError(error));
     }
   },
 };

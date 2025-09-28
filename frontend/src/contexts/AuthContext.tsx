@@ -115,23 +115,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (token && userStr) {
           const user = JSON.parse(userStr);
           
-          // Verify token is still valid
+          // Verify token first before marking as authenticated
           try {
-            await authAPI.verifyToken();
+            const verifyResponse = await authAPI.verifyToken() as any;
+            // Token is valid, mark user as authenticated
+            const verifiedUser = verifyResponse?.user || user;
             dispatch({
               type: 'INITIALIZE_SUCCESS',
-              payload: { user, token },
+              payload: { user: verifiedUser, token },
             });
           } catch (error) {
-            // Token is invalid, clear storage
+            console.error('Token verification failed:', error);
+            // Token is invalid, clear storage and mark as not authenticated
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             dispatch({ type: 'INITIALIZE_FAILURE' });
           }
         } else {
+          // No token or user in localStorage, initialize as not authenticated
           dispatch({ type: 'INITIALIZE_FAILURE' });
         }
       } catch (error) {
+        console.error('Auth initialization error:', error);
         dispatch({ type: 'INITIALIZE_FAILURE' });
       }
     };
@@ -144,7 +149,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     
     try {
+      console.log('Attempting login with username:', username);
       const response = await authAPI.login(username, password);
+      console.log('Login response received:', response);
       const { user, token } = response;
       
       // Store in localStorage
@@ -155,7 +162,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         type: 'LOGIN_SUCCESS',
         payload: { user, token },
       });
+
+      // After successful login, redirect to preserved page if any
+      const redirect = sessionStorage.getItem('postLoginRedirect');
+      if (redirect) {
+        sessionStorage.removeItem('postLoginRedirect');
+        window.location.replace(redirect);
+      }
     } catch (error) {
+      console.error('Login error:', error);
       dispatch({ type: 'LOGIN_FAILURE' });
       throw error;
     }
@@ -173,8 +188,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   };
 
+  // Clear storage function for debugging
+  const clearStorage = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    dispatch({ type: 'LOGOUT' });
+  };
+
   // Check if user is authenticated
   const isAuthenticated = Boolean(state.user && state.token);
+  
+  // Debug logging
+  console.log('Auth state:', { 
+    isAuthenticated, 
+    hasUser: !!state.user, 
+    hasToken: !!state.token, 
+    isLoading: state.isLoading 
+  });
 
   // Check if user has specific roles
   const hasRole = (roles: UserRole[]): boolean => {
@@ -186,12 +216,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!state.user) return false;
     
     // Company and deputy managers can access all departments
-    if (state.user.role === 'COMPANY_MANAGER' || state.user.role === 'DEPUTY_MANAGER') {
+    if (state.user.role === UserRole.COMPANY_MANAGER || state.user.role === UserRole.DEPUTY_MANAGER) {
       return true;
     }
     
     // Department-specific roles need to match department
     return state.user.department?.id === departmentId;
+  };
+
+  // Update user data in context
+  const updateUser = (userData: User): void => {
+    dispatch({ type: 'UPDATE_USER', payload: userData });
   };
 
 
@@ -205,6 +240,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated,
     hasRole,
     canAccessDepartment,
+    updateUser,
+    clearStorage, // Add clearStorage for debugging
   };
 
   // Don't render children until auth is initialized
@@ -214,11 +251,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-2 text-sm text-gray-500">Initializing authentication...</p>
         </div>
       </div>
     );
   }
-
   return (
     <AuthContext.Provider value={value}>
       {children}

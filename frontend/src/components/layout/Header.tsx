@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import CurrencySelector from '../common/CurrencySelector';
+import api, { authAPI } from '../../services/api';
 
 export default function Header(props: any) {
   const { lang, setLang } = useI18n();
@@ -23,7 +24,25 @@ export default function Header(props: any) {
   }, []);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [notificationCount] = useState(3); // TODO: Get from API
+  const [notificationCount, setNotificationCount] = useState(0);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      // Only load notifications if user is authenticated
+      if (!user) return;
+      
+      try {
+        const res: any = await authAPI.getNotifications({ unreadOnly: true, limit: 1, page: 1 });
+        if (!mounted) return;
+        setNotificationCount(res.unreadCount || 0);
+      } catch (error) {
+        console.log('Failed to load notifications:', error);
+      }
+    };
+    load();
+    const interval = setInterval(load, 30000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -117,15 +136,15 @@ export default function Header(props: any) {
                 <span className="sr-only">Open user menu</span>
                 <div className="inline-block h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center">
                   <span className="text-xs font-medium text-white">
-                    {user?.firstName.charAt(0)}{user?.lastName.charAt(0)}
+                    {user?.firstName?.charAt(0) || 'U'}{user?.lastName?.charAt(0) || 'U'}
                   </span>
                 </div>
                 <div className="ml-3 hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-700">
-                    {user?.firstName} {user?.lastName}
+                    {user?.firstName || 'User'} {user?.lastName || 'Name'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {user?.role.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                    {user?.role?.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) || 'User'}
                   </p>
                 </div>
               </Menu.Button>

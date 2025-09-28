@@ -5,7 +5,8 @@ import {
   ExecutionMethod, 
   UserRole, 
   ActivityType,
-  RequestPriority 
+  RequestPriority,
+  NotificationType 
 } from '../types';
 import { prisma } from '../index';
 import { 
@@ -179,7 +180,8 @@ export const createRequest = asyncHandler(async (req: AuthenticatedRequest, res:
       requestId: newRequest.id,
       title: 'New Request Assigned',
       message: `New request ${requestNumber} has been assigned to your department`,
-      type: 'ASSIGNMENT',
+      type: NotificationType.ASSIGNMENT,
+      createdById: req.user.id,
     });
   }
 
@@ -249,13 +251,22 @@ export const getRequests = asyncHandler(async (req: AuthenticatedRequest, res: R
 
   // Search functionality
   if (search) {
-    whereClause.OR = [
-      ...(whereClause.OR || []),
-      { requestNumber: { contains: search.toString(), mode: 'insensitive' } },
-      { issueDescription: { contains: search.toString(), mode: 'insensitive' } },
-      { customer: { name: { contains: search.toString(), mode: 'insensitive' } } },
-      { product: { name: { contains: search.toString(), mode: 'insensitive' } } },
-    ];
+    const searchTerm = search.toString().trim();
+    if (searchTerm.length > 0) {
+      const searchConditions = [
+        { requestNumber: { contains: searchTerm, mode: 'insensitive' } },
+        { issueDescription: { contains: searchTerm, mode: 'insensitive' } },
+        { customer: { name: { contains: searchTerm, mode: 'insensitive' } } },
+        { customer: { phone: { contains: searchTerm, mode: 'insensitive' } } },
+        { product: { name: { contains: searchTerm, mode: 'insensitive' } } },
+      ];
+
+      if (whereClause.AND) {
+        whereClause.AND.push({ OR: searchConditions });
+      } else {
+        whereClause.AND = [{ OR: searchConditions }];
+      }
+    }
   }
 
   // Calculate pagination
@@ -437,6 +448,17 @@ export const updateRequestStatus = asyncHandler(async (req: AuthenticatedRequest
     throw new ForbiddenError('Cannot update this request');
   }
 
+  // Check if user can change status (only admin and supervisor roles)
+  const canChangeStatus = 
+    req.user.role === UserRole.COMPANY_MANAGER ||
+    req.user.role === UserRole.DEPUTY_MANAGER ||
+    req.user.role === UserRole.DEPARTMENT_MANAGER ||
+    req.user.role === UserRole.SECTION_SUPERVISOR;
+
+  if (!canChangeStatus) {
+    throw new ForbiddenError('Only administrators and supervisors can change request status');
+  }
+
   const oldStatus = request.status;
   const updateData: any = { status };
 
@@ -473,15 +495,112 @@ export const updateRequestStatus = asyncHandler(async (req: AuthenticatedRequest
   
   await logActivity(requestId, req.user.id, ActivityType.STATUS_CHANGE, activityDescription, oldStatus, status);
 
-  // Create notification for relevant users
+  // Create notification for assigned technician (only if someone else updated the status)
   if (updatedRequest.assignedTechnician && updatedRequest.assignedTechnicianId !== req.user.id) {
+    const statusLabels = {
+      'NEW': 'جديد',
+      'ASSIGNED': 'مُعين',
+      'UNDER_INSPECTION': 'تحت الفحص',
+      'WAITING_PARTS': 'في انتظار القطع',
+      'IN_REPAIR': 'قيد الإصلاح',
+      'COMPLETED': 'مكتمل',
+      'CLOSED': 'مغلق'
+    };
+    
+    const oldStatusLabel = statusLabels[oldStatus as keyof typeof statusLabels] || oldStatus;
+    const newStatusLabel = statusLabels[status as keyof typeof statusLabels] || status;
+    
     await createNotification({
       userId: updatedRequest.assignedTechnician.id,
       requestId: requestId,
-      title: 'Request Status Updated',
-      message: `Request ${updatedRequest.requestNumber} status changed to ${status}`,
-      type: 'STATUS_CHANGE',
+      title: 'تم تحديث حالة الطلب',
+      message: `تم تغيير حالة الطلب ${updatedRequest.requestNumber} من "${oldStatusLabel}" إلى "${newStatusLabel}"`,
+      type: NotificationType.STATUS_CHANGE,
+      createdById: req.user.id,
     });
+  }
+
+  // If technician modified the status, notify managers and supervisors
+  if (req.user.role === UserRole.TECHNICIAN) {
+    const technicianName = `${req.user.firstName || 'Unknown'} ${req.user.lastName || 'Technician'}`;
+    const statusLabels = {
+      'NEW': 'جديد',
+      'ASSIGNED': 'مُعين',
+      'UNDER_INSPECTION': 'تحت الفحص',
+      'WAITING_PARTS': 'في انتظار القطع',
+      'IN_REPAIR': 'قيد الإصلاح',
+      'COMPLETED': 'مكتمل',
+      'CLOSED': 'مغلق'
+    };
+    
+    const oldStatusLabel = statusLabels[oldStatus as keyof typeof statusLabels] || oldStatus;
+    const newStatusLabel = statusLabels[status as keyof typeof statusLabels] || status;
+    
+    // Get all managers and supervisors (including company and deputy managers)
+    const managersAndSupervisors = await prisma.user.findMany({
+      where: {
+        OR: [
+          // Company and deputy managers (can see all departments)
+          { role: { in: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER] } },
+          // Department managers and supervisors for this specific department
+          {
+            departmentId: request.departmentId,
+            role: { in: [UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR] },
+          }
+        ],
+        isActive: true,
+      },
+      select: { id: true, firstName: true, lastName: true, role: true },
+    });
+
+    // Send notification to each manager/supervisor
+    for (const manager of managersAndSupervisors) {
+      await createNotification({
+        userId: manager.id,
+        requestId: requestId,
+        title: 'تحديث حالة الطلب من قبل الفني',
+        message: `الفني ${technicianName} قام بتعديل حالة الطلب من "${oldStatusLabel}" إلى "${newStatusLabel}"`,
+        type: NotificationType.STATUS_CHANGE,
+        createdById: req.user.id,
+      });
+    }
+  }
+
+  // If manager or supervisor modified the status, notify the assigned technician
+  if (req.user.role === UserRole.COMPANY_MANAGER || req.user.role === UserRole.DEPUTY_MANAGER || 
+      req.user.role === UserRole.DEPARTMENT_MANAGER || req.user.role === UserRole.SECTION_SUPERVISOR) {
+    
+    const statusLabels = {
+      'NEW': 'جديد',
+      'ASSIGNED': 'مُعين',
+      'UNDER_INSPECTION': 'تحت الفحص',
+      'WAITING_PARTS': 'في انتظار القطع',
+      'IN_REPAIR': 'قيد الإصلاح',
+      'COMPLETED': 'مكتمل',
+      'CLOSED': 'مغلق'
+    };
+    
+    const oldStatusLabel = statusLabels[oldStatus as keyof typeof statusLabels] || oldStatus;
+    const newStatusLabel = statusLabels[status as keyof typeof statusLabels] || status;
+    
+    const userRole = req.user.role === UserRole.COMPANY_MANAGER ? 'مدير الشركة' :
+                    req.user.role === UserRole.DEPUTY_MANAGER ? 'نائب المدير' :
+                    req.user.role === UserRole.DEPARTMENT_MANAGER ? 'مدير القسم' :
+                    'مشرف القسم';
+    
+    const userName = `${req.user.firstName || 'Unknown'} ${req.user.lastName || 'User'}`;
+    
+    // Notify assigned technician if exists
+    if (updatedRequest.assignedTechnician) {
+      await createNotification({
+        userId: updatedRequest.assignedTechnician.id,
+        requestId: requestId,
+        title: 'تم تعديل الطلب من قبل الإدارة',
+        message: `${userRole} ${userName} قام بتعديل حالة الطلب من "${oldStatusLabel}" إلى "${newStatusLabel}"`,
+        type: NotificationType.STATUS_CHANGE,
+        createdById: req.user.id,
+      });
+    }
   }
 
   logger.info(`Request ${updatedRequest.requestNumber} status updated to ${status} by user ${req.user.username}`);
@@ -514,11 +633,24 @@ export const assignTechnician = asyncHandler(async (req: AuthenticatedRequest, r
 
   const request = await prisma.request.findUnique({
     where: { id: requestId },
+    include: {
+      assignedTechnician: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
   });
 
   if (!request) {
     throw new NotFoundError('Request not found');
   }
+
+  // Store old technician info for notification
+  const oldTechnician = request.assignedTechnician;
+  const oldTechnicianId = request.assignedTechnicianId;
 
   // Check if technician exists and is active
   const technician = await prisma.user.findUnique({
@@ -567,13 +699,31 @@ export const assignTechnician = asyncHandler(async (req: AuthenticatedRequest, r
   );
 
   // Notify technician
+  const assignerName = `${req.user.firstName || 'Unknown'} ${req.user.lastName || 'User'}`;
+  const assignerRole = req.user.role === 'COMPANY_MANAGER' ? 'مدير الشركة' :
+                      req.user.role === 'DEPUTY_MANAGER' ? 'نائب المدير' :
+                      req.user.role === 'DEPARTMENT_MANAGER' ? 'مدير القسم' :
+                      req.user.role === 'SECTION_SUPERVISOR' ? 'مشرف القسم' : 'المشرف';
+  
   await createNotification({
     userId: parseInt(technicianId),
     requestId: requestId,
-    title: 'New Request Assigned',
-    message: `Request ${updatedRequest.requestNumber} has been assigned to you`,
-    type: 'ASSIGNMENT',
+    title: 'تم تعيين طلب جديد لك',
+    message: `${assignerRole} ${assignerName} عينك لطلب ${updatedRequest.requestNumber}`,
+    type: NotificationType.ASSIGNMENT,
   });
+
+  // Notify old technician if they were reassigned
+  if (oldTechnician && oldTechnicianId && oldTechnicianId !== parseInt(technicianId)) {
+    await createNotification({
+      userId: oldTechnicianId,
+      requestId: undefined, // No requestId since technician can't access it anymore
+      title: 'تم إلغاء تعيينك من الطلب',
+      message: `لم تعد مسؤولاً عن الطلب ${updatedRequest.requestNumber}. تم تعيينه لفني آخر.`,
+      type: NotificationType.ASSIGNMENT,
+      createdById: req.user.id,
+    });
+  }
 
   logger.info(`Request ${updatedRequest.requestNumber} assigned to technician ${technician.firstName} ${technician.lastName} by user ${req.user.username}`);
 
@@ -646,6 +796,44 @@ export const addCost = asyncHandler(async (req: AuthenticatedRequest, res: Respo
     `${description}: $${amount}`
   );
 
+  // If manager or supervisor added cost, notify the assigned technician
+  if (req.user.role === UserRole.COMPANY_MANAGER || req.user.role === UserRole.DEPUTY_MANAGER || 
+      req.user.role === UserRole.DEPARTMENT_MANAGER || req.user.role === UserRole.SECTION_SUPERVISOR) {
+    
+    const userRole = req.user.role === UserRole.COMPANY_MANAGER ? 'مدير الشركة' :
+                    req.user.role === UserRole.DEPUTY_MANAGER ? 'نائب المدير' :
+                    req.user.role === UserRole.DEPARTMENT_MANAGER ? 'مدير القسم' :
+                    'مشرف القسم';
+    
+    const userName = `${req.user.firstName || 'Unknown'} ${req.user.lastName || 'User'}`;
+    
+    // Get the request with assigned technician
+    const requestWithTechnician = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        assignedTechnician: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+    
+    // Notify assigned technician if exists
+    if (requestWithTechnician?.assignedTechnician) {
+      await createNotification({
+        userId: requestWithTechnician.assignedTechnician.id,
+        requestId: requestId,
+        title: 'تم إضافة تكلفة للطلب',
+        message: `${userRole} ${userName} قام بإضافة تكلفة للطلب: ${description} - ${amount} ${currency}`,
+        type: NotificationType.STATUS_CHANGE,
+        createdById: req.user.id,
+      });
+    }
+  }
+
   logger.info(`Cost added to request ${request.requestNumber} by user ${req.user.username}: ${description} - $${amount}`);
 
   const response: ApiResponse = {
@@ -710,6 +898,44 @@ export const closeRequest = asyncHandler(async (req: AuthenticatedRequest, res: 
     RequestStatus.COMPLETED,
     RequestStatus.CLOSED
   );
+
+  // If manager or supervisor closed the request, notify the assigned technician
+  if (req.user.role === UserRole.COMPANY_MANAGER || req.user.role === UserRole.DEPUTY_MANAGER || 
+      req.user.role === UserRole.DEPARTMENT_MANAGER || req.user.role === UserRole.SECTION_SUPERVISOR) {
+    
+    const userRole = req.user.role === UserRole.COMPANY_MANAGER ? 'مدير الشركة' :
+                    req.user.role === UserRole.DEPUTY_MANAGER ? 'نائب المدير' :
+                    req.user.role === UserRole.DEPARTMENT_MANAGER ? 'مدير القسم' :
+                    'مشرف القسم';
+    
+    const userName = `${req.user.firstName || 'Unknown'} ${req.user.lastName || 'User'}`;
+    
+    // Get the request with assigned technician
+    const requestWithTechnician = await prisma.request.findUnique({
+      where: { id: requestId },
+      include: {
+        assignedTechnician: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+    
+    // Notify assigned technician if exists
+    if (requestWithTechnician?.assignedTechnician) {
+      await createNotification({
+        userId: requestWithTechnician.assignedTechnician.id,
+        requestId: requestId,
+        title: 'تم إغلاق الطلب',
+        message: `${userRole} ${userName} قام بإغلاق الطلب نهائياً`,
+        type: NotificationType.STATUS_CHANGE,
+        createdById: req.user.id,
+      });
+    }
+  }
 
   logger.info(`Request ${request.requestNumber} closed by user ${req.user.username}`);
 

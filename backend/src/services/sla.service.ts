@@ -1,4 +1,4 @@
-import { WarrantyStatus, ExecutionMethod } from '../types';
+import { WarrantyStatus, ExecutionMethod, NotificationType } from '../types';
 import { prisma } from '../index';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
@@ -94,7 +94,7 @@ export const checkSLAOverdue = async (): Promise<number[]> => {
           requestId: request.id,
           title: 'Request Overdue',
           message: `Request ${request.requestNumber} is now overdue`,
-          type: 'OVERDUE' as const,
+          type: NotificationType.OVERDUE,
         });
       }
 
@@ -105,7 +105,7 @@ export const checkSLAOverdue = async (): Promise<number[]> => {
           requestId: request.id,
           title: 'Request Overdue in Your Department',
           message: `Request ${request.requestNumber} in ${request.department.name} is now overdue`,
-          type: 'OVERDUE' as const,
+          type: NotificationType.OVERDUE,
         });
       }
 

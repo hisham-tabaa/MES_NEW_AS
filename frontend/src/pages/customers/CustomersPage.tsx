@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { customersAPI } from '../../services/api';
-import { Customer } from '../../types';
+import { Customer, UserRole } from '../../types';
 import { useI18n } from '../../contexts/I18nContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { SYRIAN_CITIES } from '../../utils/currency';
 
 const CustomersPage: React.FC = () => {
   const { t } = useI18n();
+  const { hasRole } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,12 +49,14 @@ const CustomersPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{t('customers.title') || 'Customers'}</h1>
-          <p className="mt-2 text-sm text-gray-700">{t('customers.subtitle') || 'Manage customer information'}</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('customers.title')}</h1>
+          <p className="mt-2 text-sm text-gray-700">{t('customers.subtitle')}</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowForm(v => !v)}>
-          {t('customers.add') || 'Add Customer'}
-        </button>
+        {hasRole([UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR]) && (
+          <button className="btn-primary" onClick={() => setShowForm(v => !v)}>
+            {t('customers.add')}
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -61,7 +65,7 @@ const CustomersPage: React.FC = () => {
             <input className="input" placeholder={t('customers.name') || 'Name'} value={form.name} onChange={e=>setForm(f=>({...f, name: e.target.value}))} required />
             <input className="input" placeholder="09XX XXX XXX" value={form.phone} onChange={e=>setForm(f=>({...f, phone: e.target.value}))} required />
             <input className="input" placeholder={t('customers.email') || 'Email'} value={form.email} onChange={e=>setForm(f=>({...f, email: e.target.value}))} />
-            <select className="input" value={form.city} onChange={e=>setForm(f=>({...f, city: e.target.value}))}>
+            <select className="input" value={form.city} onChange={e=>setForm(f=>({...f, city: e.target.value}))} title={t('customers.city') || 'City'}>
               <option value="">اختر المحافظة...</option>
               {SYRIAN_CITIES.map(city => (
                 <option key={city} value={city}>{city}</option>

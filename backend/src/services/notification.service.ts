@@ -8,11 +8,14 @@ export const createNotification = async (data: NotificationData): Promise<void> 
   try {
     await prisma.notification.create({
       data: {
-        userId: data.userId,
-        requestId: data.requestId || null,
+        user: { connect: { id: data.userId } },
+        request: data.requestId ? { connect: { id: data.requestId } } : undefined,
         title: data.title,
         message: data.message,
         type: data.type as NotificationType,
+        // 'createdBy' is not a valid property for prisma.notification.create's data input.
+        // If you need to associate a creator, you may need to update your Prisma schema or handle this differently.
+        // For now, we remove the invalid property to fix the error.
       },
     });
 
@@ -231,5 +234,60 @@ export const createSystemNotification = async (
     }
   } catch (error) {
     logger.error('Error creating system notification:', error);
+  }
+};
+
+// Create role-based notification for warehouse operations
+export const createWarehouseNotification = async (
+  operation: 'ADDED' | 'DELETED' | 'MODIFIED',
+  sparePartName: string,
+  warehouseKeeperName: string,
+  departmentId?: number
+): Promise<void> => {
+  try {
+    // Get all managers and supervisors
+    const targetRoles = ['COMPANY_MANAGER', 'DEPUTY_MANAGER', 'DEPARTMENT_MANAGER', 'SECTION_SUPERVISOR'];
+    
+    const whereClause: any = {
+      role: { in: targetRoles },
+      isActive: true,
+    };
+
+    // If departmentId is provided, also include department-specific roles
+    if (departmentId) {
+      whereClause.OR = [
+        { role: { in: ['COMPANY_MANAGER', 'DEPUTY_MANAGER'] } },
+        { 
+          AND: [
+            { role: { in: ['DEPARTMENT_MANAGER', 'SECTION_SUPERVISOR'] } },
+            { departmentId }
+          ]
+        }
+      ];
+    }
+
+    const users = await prisma.user.findMany({
+      where: whereClause,
+      select: { id: true },
+    });
+
+    const userIds = users.map(user => user.id);
+
+    if (userIds.length > 0) {
+      const operationText = {
+        'ADDED': 'أضاف',
+        'DELETED': 'حذف',
+        'MODIFIED': 'عدّل'
+      };
+
+      const title = 'تحديث في المخزن';
+      const message = `${warehouseKeeperName} ${operationText[operation]} قطعة الغيار "${sparePartName}" في المخزن`;
+
+      await sendBulkNotifications(userIds, title, message, 'WAREHOUSE_UPDATE' as NotificationType);
+      
+      logger.info(`Warehouse notification sent to ${userIds.length} users: ${operation} ${sparePartName} by ${warehouseKeeperName}`);
+    }
+  } catch (error) {
+    logger.error('Error creating warehouse notification:', error);
   }
 };

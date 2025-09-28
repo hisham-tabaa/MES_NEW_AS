@@ -24,6 +24,7 @@ model Department {
   users       User[]    @relation("UserDepartment")
   products    Product[]
   requests    Request[]
+  spareParts  SparePart[]
 
   @@map("departments")
 }
@@ -51,6 +52,9 @@ model User {
   activities           RequestActivity[]
   costsAdded          RequestCost[]
   notifications       Notification[]
+  createdNotifications Notification[]     @relation("NotificationCreator")
+  requestPartsAdded   RequestPart[]
+  createdCustomStatuses CustomRequestStatus[]
 
   @@map("users")
 }
@@ -131,6 +135,7 @@ model Request {
   activities           RequestActivity[]
   costs                RequestCost[]
   notifications        Notification[]
+  requestParts         RequestPart[]
 
   @@map("requests")
 }
@@ -179,9 +184,73 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
 
+  // Who created/sent this notification (optional, used for read receipts)
+  createdById Int?
+
   // Relations
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   request Request? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("NotificationCreator", fields: [createdById], references: [id])
 
   @@map("notifications")
+}
+
+model SparePart {
+  id          Int      @id @default(autoincrement())
+  name        String
+  partNumber  String   @unique
+  category    String
+  quantity    Int      @default(0)
+  minQuantity Int      @default(5)
+  unitPrice   Float    @default(0.0)
+  currency    String   @default("SYP")
+  supplier    String?
+  location    String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Optional owning department for the part
+  departmentId Int?
+
+  // Relations
+  requestParts RequestPart[]
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  @@map("spare_parts")
+}
+
+model RequestPart {
+  id           Int      @id @default(autoincrement())
+  requestId    Int
+  sparePartId  Int
+  quantityUsed Int
+  unitPrice    Float
+  totalCost    Float
+  addedById    Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  request   Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sparePart SparePart @relation(fields: [sparePartId], references: [id])
+  addedBy   User      @relation(fields: [addedById], references: [id])
+
+  @@map("request_parts")
+}
+
+model CustomRequestStatus {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  displayName String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0) // For ordering in dropdowns
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@map("custom_request_statuses")
 }

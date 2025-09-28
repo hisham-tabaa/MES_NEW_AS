@@ -1,0 +1,232 @@
+import { Router } from 'express';
+import { prisma } from '../index';
+import { ApiResponse, ValidationError } from '../types';
+
+const router = Router();
+
+/**
+ * @route   GET /api/request-parts/:requestId
+ * @desc    Get all parts for a specific request
+ * @access  Private
+ */
+router.get('/:requestId', async (req, res) => {
+  const { requestId } = req.params;
+
+  const requestParts = await prisma.requestPart.findMany({
+    where: { requestId: Number(requestId) },
+    include: {
+      sparePart: true,
+      addedBy: { select: { firstName: true, lastName: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const response: ApiResponse = {
+    success: true,
+    data: { requestParts },
+  };
+
+  res.status(200).json(response);
+});
+
+/**
+ * @route   POST /api/request-parts
+ * @desc    Add spare part to request
+ * @access  Private
+ */
+router.post('/', async (req, res) => {
+  const { requestId, sparePartId, quantityUsed, addedById } = req.body;
+
+  if (!requestId || !sparePartId || !quantityUsed || !addedById) {
+    const error = new ValidationError('requestId, sparePartId, quantityUsed, and addedById are required');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  // Check if request exists
+  const request = await prisma.request.findUnique({
+    where: { id: Number(requestId) },
+  });
+
+  if (!request) {
+    const error = new ValidationError('Request not found');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  // Check if spare part exists
+  const sparePart = await prisma.sparePart.findUnique({
+    where: { id: Number(sparePartId) },
+  });
+
+  if (!sparePart) {
+    const error = new ValidationError('Spare part not found');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  // Check if enough quantity is available
+  if (sparePart.quantity < Number(quantityUsed)) {
+    const error = new ValidationError('Insufficient quantity in stock');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  const totalCost = Number(quantityUsed) * sparePart.unitPrice;
+
+  // Create request part and update spare part quantity in a transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // Create request part
+    const requestPart = await tx.requestPart.create({
+      data: {
+        requestId: Number(requestId),
+        sparePartId: Number(sparePartId),
+        quantityUsed: Number(quantityUsed),
+        unitPrice: sparePart.unitPrice,
+        totalCost,
+        addedById: Number(addedById),
+      },
+      include: {
+        sparePart: true,
+        addedBy: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    // Update spare part quantity
+    await tx.sparePart.update({
+      where: { id: Number(sparePartId) },
+      data: {
+        quantity: sparePart.quantity - Number(quantityUsed),
+      },
+    });
+
+    return requestPart;
+  });
+
+  const response: ApiResponse = {
+    success: true,
+    message: 'Spare part added to request successfully',
+    data: { requestPart: result },
+  };
+
+  res.status(201).json(response);
+});
+
+/**
+ * @route   DELETE /api/request-parts/:id
+ * @desc    Remove spare part from request
+ * @access  Private
+ */
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  // Get request part with spare part info
+  const requestPart = await prisma.requestPart.findUnique({
+    where: { id: Number(id) },
+    include: { sparePart: true },
+  });
+
+  if (!requestPart) {
+    const error = new ValidationError('Request part not found');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  // Remove request part and restore quantity in a transaction
+  await prisma.$transaction(async (tx) => {
+    // Delete request part
+    await tx.requestPart.delete({
+      where: { id: Number(id) },
+    });
+
+    // Restore quantity to spare part
+    await tx.sparePart.update({
+      where: { id: requestPart.sparePartId },
+      data: {
+        quantity: requestPart.sparePart.quantity + requestPart.quantityUsed,
+      },
+    });
+  });
+
+  const response: ApiResponse = {
+    success: true,
+    message: 'Spare part removed from request successfully',
+  };
+
+  res.status(200).json(response);
+});
+
+/**
+ * @route   PUT /api/request-parts/:id
+ * @desc    Update quantity of spare part in request
+ * @access  Private
+ */
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { quantityUsed } = req.body;
+
+  if (!quantityUsed || quantityUsed <= 0) {
+    const error = new ValidationError('quantityUsed is required and must be greater than 0');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  // Get request part with spare part info
+  const requestPart = await prisma.requestPart.findUnique({
+    where: { id: Number(id) },
+    include: { sparePart: true },
+  });
+
+  if (!requestPart) {
+    const error = new ValidationError('Request part not found');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  const quantityDifference = Number(quantityUsed) - requestPart.quantityUsed;
+  const newSparePartQuantity = requestPart.sparePart.quantity - quantityDifference;
+
+  if (newSparePartQuantity < 0) {
+    const error = new ValidationError('Insufficient quantity in stock');
+    res.status(error.statusCode).json({ success: false, message: error.message });
+    return;
+  }
+
+  const totalCost = Number(quantityUsed) * requestPart.sparePart.unitPrice;
+
+  // Update request part and spare part quantity in a transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // Update request part
+    const updatedRequestPart = await tx.requestPart.update({
+      where: { id: Number(id) },
+      data: {
+        quantityUsed: Number(quantityUsed),
+        totalCost,
+      },
+      include: {
+        sparePart: true,
+        addedBy: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    // Update spare part quantity
+    await tx.sparePart.update({
+      where: { id: requestPart.sparePartId },
+      data: {
+        quantity: newSparePartQuantity,
+      },
+    });
+
+    return updatedRequestPart;
+  });
+
+  const response: ApiResponse = {
+    success: true,
+    message: 'Request part updated successfully',
+    data: { requestPart: result },
+  };
+
+  res.status(200).json(response);
+});
+
+export default router;

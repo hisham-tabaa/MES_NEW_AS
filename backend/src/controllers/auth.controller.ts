@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { prisma } from '../index';
 import { config } from '../config/config';
-import { AuthenticatedRequest, ApiResponse, UnauthorizedError, ValidationError, JWTPayload, UserRole } from '../types';
+import { AuthenticatedRequest, ApiResponse, UnauthorizedError, ValidationError, ForbiddenError, JWTPayload, UserRole } from '../types';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 
@@ -150,15 +150,27 @@ export const updateProfile = asyncHandler(async (req: AuthenticatedRequest, res:
     throw new ValidationError('Invalid email format');
   }
 
+  // Check if user is trying to update firstName or lastName
+  // Only COMPANY_MANAGER can update these fields
+  if ((firstName !== undefined || lastName !== undefined) && req.user.role !== UserRole.COMPANY_MANAGER) {
+    throw new ForbiddenError('Only administrators can update first name and last name');
+  }
+
+  const updateData: any = {
+    email,
+    phone,
+    updatedAt: new Date(),
+  };
+
+  // Only include firstName and lastName if user is COMPANY_MANAGER
+  if (req.user.role === UserRole.COMPANY_MANAGER) {
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+  }
+
   const updatedUser = await prisma.user.update({
     where: { id: req.user.id },
-    data: {
-      firstName,
-      lastName,
-      email,
-      phone,
-      updatedAt: new Date(),
-    },
+    data: updateData,
     select: {
       id: true,
       username: true,

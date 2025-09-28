@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { authAPI } from '../services/api';
+import { UserRole } from '../types';
 // import { useI18n } from '../contexts/I18nContext';
 import { 
   UserCircleIcon, 
@@ -24,7 +26,7 @@ interface PasswordForm {
 }
 
 const ProfilePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
@@ -48,11 +50,19 @@ const ProfilePage: React.FC = () => {
     setMessage(null);
 
     try {
-      // TODO: Implement API call to update profile
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      // Only send firstName and lastName if user is admin
+      const updateData = user?.role === UserRole.COMPANY_MANAGER 
+        ? profileForm 
+        : { email: profileForm.email, phone: profileForm.phone };
+      
+      const updatedUser = await authAPI.updateProfile(updateData);
+      // Update the user context with new data
+      if (updatedUser && user) {
+        updateUser({ ...user, ...updatedUser });
+      }
       setMessage({ type: 'success', text: 'تم تحديث الملف الشخصي بنجاح' });
-    } catch (error) {
-      setMessage({ type: 'error', text: 'فشل في تحديث الملف الشخصي' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'فشل في تحديث الملف الشخصي' });
     } finally {
       setLoading(false);
     }
@@ -76,12 +86,14 @@ const ProfilePage: React.FC = () => {
     }
 
     try {
-      // TODO: Implement API call to change password
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await authAPI.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
       setMessage({ type: 'success', text: 'تم تغيير كلمة المرور بنجاح' });
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error) {
-      setMessage({ type: 'error', text: 'فشل في تغيير كلمة المرور' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'فشل في تغيير كلمة المرور' });
     } finally {
       setLoading(false);
     }
@@ -199,34 +211,45 @@ const ProfilePage: React.FC = () => {
             <form onSubmit={handleProfileSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
                     الاسم الأول
+                    {user?.role !== UserRole.COMPANY_MANAGER && (
+                      <span className="text-xs text-gray-500 mr-2">(يمكن للمدير فقط تعديله)</span>
+                    )}
                   </label>
                   <input
+                    id="firstName"
                     type="text"
                     value={profileForm.firstName}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="input"
+                    className={`input ${user?.role !== UserRole.COMPANY_MANAGER ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    disabled={user?.role !== UserRole.COMPANY_MANAGER}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
                     الاسم الأخير
+                    {user?.role !== UserRole.COMPANY_MANAGER && (
+                      <span className="text-xs text-gray-500 mr-2">(يمكن للمدير فقط تعديله)</span>
+                    )}
                   </label>
                   <input
+                    id="lastName"
                     type="text"
                     value={profileForm.lastName}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="input"
+                    className={`input ${user?.role !== UserRole.COMPANY_MANAGER ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    disabled={user?.role !== UserRole.COMPANY_MANAGER}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                     البريد الإلكتروني
                   </label>
                   <input
+                    id="email"
                     type="email"
                     value={profileForm.email}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
@@ -235,10 +258,11 @@ const ProfilePage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                     رقم الهاتف
                   </label>
                   <input
+                    id="phone"
                     type="tel"
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
@@ -263,10 +287,11 @@ const ProfilePage: React.FC = () => {
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
               <div className="max-w-md">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
                     كلمة المرور الحالية
                   </label>
                   <input
+                    id="currentPassword"
                     type="password"
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
@@ -275,10 +300,11 @@ const ProfilePage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
                     كلمة المرور الجديدة
                   </label>
                   <input
+                    id="newPassword"
                     type="password"
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
@@ -291,10 +317,11 @@ const ProfilePage: React.FC = () => {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
                     تأكيد كلمة المرور الجديدة
                   </label>
                   <input
+                    id="confirmPassword"
                     type="password"
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}

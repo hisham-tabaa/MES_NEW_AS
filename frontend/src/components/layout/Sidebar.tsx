@@ -3,6 +3,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
+import { UserRole } from '../../types';
 import {
   XMarkIcon,
   HomeIcon,
@@ -11,6 +12,8 @@ import {
   CubeIcon,
   UsersIcon,
   ChartBarIcon,
+  ArchiveBoxIcon,
+  CogIcon,
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 
@@ -27,39 +30,52 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const navigation = [
     {
       name: t('nav.dashboard') || 'Dashboard',
-      href: '/',
+      href: '/dashboard',
       icon: HomeIcon,
-      roles: ['COMPANY_MANAGER', 'DEPUTY_MANAGER', 'DEPARTMENT_MANAGER', 'SECTION_SUPERVISOR', 'TECHNICIAN'],
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR, UserRole.TECHNICIAN],
+    },
+    {
+      name: t('nav.storage') || 'Storage',
+      href: '/storage',
+      icon: ArchiveBoxIcon,
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR, UserRole.WAREHOUSE_KEEPER],
+      isMainForWarehouse: true, // Special flag for warehouse keepers
     },
     {
       name: t('nav.requests') || 'Requests',
       href: '/requests',
       icon: ClipboardDocumentListIcon,
-      roles: ['COMPANY_MANAGER', 'DEPUTY_MANAGER', 'DEPARTMENT_MANAGER', 'SECTION_SUPERVISOR', 'TECHNICIAN'],
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR, UserRole.TECHNICIAN],
     },
     {
       name: t('nav.customers') || 'Customers',
       href: '/customers',
       icon: UserGroupIcon,
-      roles: ['COMPANY_MANAGER', 'DEPUTY_MANAGER', 'DEPARTMENT_MANAGER', 'SECTION_SUPERVISOR'],
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR],
     },
     {
       name: t('nav.products') || 'Products',
       href: '/products',
       icon: CubeIcon,
-      roles: ['COMPANY_MANAGER', 'DEPUTY_MANAGER', 'DEPARTMENT_MANAGER', 'SECTION_SUPERVISOR'],
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR, UserRole.TECHNICIAN],
     },
     {
-      name: t('nav.users') || 'Users',
-      href: '/users',
+      name: t('nav.accounts') || 'Accounts',
+      href: '/accounts',
       icon: UsersIcon,
-      roles: ['COMPANY_MANAGER', 'DEPUTY_MANAGER'],
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER],
     },
     {
       name: t('nav.reports') || 'Reports',
       href: '/reports',
       icon: ChartBarIcon,
-      roles: ['COMPANY_MANAGER', 'DEPUTY_MANAGER', 'DEPARTMENT_MANAGER'],
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER],
+    },
+    {
+      name: t('nav.statusManagement') || 'Status Management',
+      href: '/status-management',
+      icon: CogIcon,
+      roles: [UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR, UserRole.TECHNICIAN],
     },
   ];
 
@@ -70,6 +86,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const isActive = (href: string) => {
     if (href === '/') {
       return location.pathname === '/';
+    }
+    // For warehouse keepers, also highlight storage when on root path
+    if (user?.role === UserRole.WAREHOUSE_KEEPER && location.pathname === '/' && href === '/storage') {
+      return true;
     }
     return location.pathname.startsWith(href);
   };
@@ -138,15 +158,15 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             <div className="flex items-center">
               <div className="inline-block h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center">
                 <span className="text-sm font-medium text-white">
-                  {user?.firstName.charAt(0)}{user?.lastName.charAt(0)}
+                  {user?.firstName?.charAt(0) || 'U'}{user?.lastName?.charAt(0) || 'U'}
                 </span>
               </div>
               <div className="ml-3 rtl:mr-3 rtl:ml-0">
                 <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                  {user?.firstName} {user?.lastName}
+                  {user?.firstName || 'User'} {user?.lastName || 'Name'}
                 </p>
                 <p className="text-xs text-gray-500 group-hover:text-gray-700">
-                  {user?.role.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                  {user?.role?.replace('_', ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) || 'User'}
                 </p>
               </div>
             </div>

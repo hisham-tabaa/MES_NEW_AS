@@ -1,5 +1,12 @@
 // User types
-export type UserRole = 'COMPANY_MANAGER' | 'DEPUTY_MANAGER' | 'DEPARTMENT_MANAGER' | 'SECTION_SUPERVISOR' | 'TECHNICIAN';
+export enum UserRole {
+  COMPANY_MANAGER = 'COMPANY_MANAGER',
+  DEPUTY_MANAGER = 'DEPUTY_MANAGER',
+  DEPARTMENT_MANAGER = 'DEPARTMENT_MANAGER',
+  SECTION_SUPERVISOR = 'SECTION_SUPERVISOR',
+  TECHNICIAN = 'TECHNICIAN',
+  WAREHOUSE_KEEPER = 'WAREHOUSE_KEEPER'
+}
 
 export interface User {
   id: number;
@@ -61,6 +68,24 @@ export interface Product {
 // Request types
 export type RequestStatus = 'NEW' | 'ASSIGNED' | 'UNDER_INSPECTION' | 'WAITING_PARTS' | 'IN_REPAIR' | 'COMPLETED' | 'CLOSED';
 export type RequestPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+
+export interface CustomRequestStatus {
+  id: number;
+  name: string;
+  displayName: string;
+  description?: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdById: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    username: string;
+  };
+}
 export type WarrantyStatus = 'UNDER_WARRANTY' | 'OUT_OF_WARRANTY';
 export type ExecutionMethod = 'ON_SITE' | 'WORKSHOP';
 
@@ -147,7 +172,7 @@ export interface RequestCost {
 }
 
 // Notification types
-export type NotificationType = 'ASSIGNMENT' | 'OVERDUE' | 'STATUS_CHANGE' | 'COMPLETION';
+export type NotificationType = 'ASSIGNMENT' | 'OVERDUE' | 'STATUS_CHANGE' | 'COMPLETION' | 'WAREHOUSE_UPDATE';
 
 export interface Notification {
   id: number;
@@ -294,6 +319,8 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   hasRole: (roles: UserRole[]) => boolean;
   canAccessDepartment: (departmentId: number) => boolean;
+  updateUser: (userData: User) => void;
+  clearStorage?: () => void; // Optional function for debugging
 }
 
 // Utility types
@@ -334,4 +361,84 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   'DEPARTMENT_MANAGER': 'Department Manager',
   'SECTION_SUPERVISOR': 'Section Supervisor',
   'TECHNICIAN': 'Technician',
+  'WAREHOUSE_KEEPER': 'Warehouse Keeper',
+};
+
+// Storage types
+export type StockStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+export type Currency = 'SYP' | 'USD' | 'EUR';
+
+export interface SparePart {
+  id: number;
+  name: string;
+  partNumber: string;
+  unitPrice: number;
+  quantity: number;
+  currency: string;
+  description?: string;
+  departmentId?: number;
+  department?: Department;
+  createdAt: string;
+  updatedAt: string;
+  requestParts?: RequestPart[];
+}
+
+export interface RequestPart {
+  id: number;
+  requestId: number;
+  sparePartId: number;
+  sparePart: SparePart;
+  quantityUsed: number;
+  unitPrice: number;
+  totalCost: number;
+  addedById: number;
+  addedBy: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  };
+  createdAt: string;
+}
+
+// Storage form types
+export interface CreateSparePartForm {
+  name: string;
+  partNumber: string;
+  unitPrice: number;
+  quantity: number;
+  currency: string;
+  description?: string;
+  departmentId?: number;
+}
+
+export interface UpdateSparePartForm extends CreateSparePartForm {
+  id: number;
+}
+
+export interface AddPartToRequestForm {
+  requestId: number;
+  sparePartId: number;
+  quantityUsed: number;
+  addedById: number;
+}
+
+export interface UpdateRequestPartForm {
+  id: number;
+  quantityUsed: number;
+}
+
+// Storage filter types
+export interface StorageFilters extends PaginationParams {
+  search?: string;
+  category?: string;
+  lowStock?: boolean;
+  supplier?: string;
+  location?: string;
+}
+
+// Storage status labels
+export const STOCK_STATUS_LABELS: Record<StockStatus, string> = {
+  'IN_STOCK': 'In Stock',
+  'LOW_STOCK': 'Low Stock',
+  'OUT_OF_STOCK': 'Out of Stock',
 };

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-// import { useI18n } from '../contexts/I18nContext';
+import { useI18n } from '../contexts/I18nContext';
+import { authAPI } from '../services/api';
 import { 
   BellIcon, 
   CheckIcon, 
@@ -8,61 +9,31 @@ import {
   InformationCircleIcon,
   ClockIcon
 } from '@heroicons/react/24/outline';
-
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  type: 'ASSIGNMENT' | 'OVERDUE' | 'STATUS_CHANGE' | 'COMPLETION';
-  isRead: boolean;
-  requestId?: number;
-  requestNumber?: string;
-  createdAt: string;
-}
+import { Notification } from '../types';
 
 const NotificationsPage: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 1,
-      title: 'طلب جديد تم تعيينه لك',
-      message: 'تم تعيين طلب الصيانة REQ241213-001 لك من قبل مشرف القسم',
-      type: 'ASSIGNMENT',
-      isRead: false,
-      requestId: 1,
-      requestNumber: 'REQ241213-001',
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-    },
-    {
-      id: 2,
-      title: 'تنبيه: طلب متأخر',
-      message: 'الطلب REQ241212-005 تجاوز المدة المحددة وبحاجة إلى اهتمام فوري',
-      type: 'OVERDUE',
-      isRead: false,
-      requestId: 5,
-      requestNumber: 'REQ241212-005',
-      createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
-    },
-    {
-      id: 3,
-      title: 'تم تحديث حالة الطلب',
-      message: 'تم تغيير حالة الطلب REQ241211-003 من "قيد الفحص" إلى "قيد الإصلاح"',
-      type: 'STATUS_CHANGE',
-      isRead: true,
-      requestId: 3,
-      requestNumber: 'REQ241211-003',
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-    },
-    {
-      id: 4,
-      title: 'تم إكمال طلب الصيانة',
-      message: 'تم إكمال الطلب REQ241210-002 بنجاح وإرساله للمراجعة النهائية',
-      type: 'COMPLETION',
-      isRead: true,
-      requestId: 2,
-      requestNumber: 'REQ241210-002',
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-    },
-  ]);
+  const { t } = useI18n();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load notifications on component mount
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await authAPI.getNotifications({ limit: 50 }) as any;
+      setNotifications(response.notifications || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -74,23 +45,35 @@ const NotificationsPage: React.FC = () => {
         return <InformationCircleIcon className="h-6 w-6 text-yellow-500" />;
       case 'COMPLETION':
         return <CheckIcon className="h-6 w-6 text-green-500" />;
+      case 'WAREHOUSE_UPDATE':
+        return <InformationCircleIcon className="h-6 w-6 text-purple-500" />;
       default:
         return <BellIcon className="h-6 w-6 text-gray-500" />;
     }
   };
 
-  const markAsRead = (id: number) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
+  const markAsRead = async (id: number) => {
+    try {
+      await authAPI.markNotificationRead(id);
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === id ? { ...notif, isRead: true } : notif
+        )
+      );
+    } catch (err: any) {
+      console.error('Failed to mark notification as read:', err);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
+  const markAllAsRead = async () => {
+    try {
+      await authAPI.markAllNotificationsRead();
+      setNotifications(prev => 
+        prev.map(notif => ({ ...notif, isRead: true }))
+      );
+    } catch (err: any) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -110,6 +93,49 @@ const NotificationsPage: React.FC = () => {
       return `منذ ${days} يوم`;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">الإشعارات</h1>
+            <p className="mt-2 text-sm text-gray-700">جاري التحميل...</p>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-content p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">جاري تحميل الإشعارات...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">الإشعارات</h1>
+            <p className="mt-2 text-sm text-red-600">خطأ في تحميل الإشعارات</p>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-content p-8 text-center">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={loadNotifications}
+              className="btn-primary"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -170,13 +196,13 @@ const NotificationsPage: React.FC = () => {
                       <p className="mt-1 text-sm text-gray-600">
                         {notification.message}
                       </p>
-                      {notification.requestId && (
+                      {notification.requestId && notification.request && (
                         <div className="mt-2">
                           <Link
                             to={`/requests/${notification.requestId}`}
                             className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                           >
-                            عرض الطلب {notification.requestNumber} ←
+                            عرض الطلب {notification.request.requestNumber} ←
                           </Link>
                         </div>
                       )}

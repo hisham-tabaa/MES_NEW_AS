@@ -261,4 +261,89 @@ router.put(
   }
 );
 
+/**
+ * @route   DELETE /api/users/:id
+ * @desc    Delete user (soft delete - set isActive to false)
+ * @access  Private (company and deputy managers only)
+ */
+router.delete(
+  '/:id',
+  requireRoles([UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER]),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const currentUser = req.user!;
+
+      const userId = Number(id);
+      if (isNaN(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'معرف المستخدم غير صحيح',
+        });
+      }
+
+      // Prevent deleting yourself
+      if (userId === currentUser.id) {
+        return res.status(400).json({
+          success: false,
+          message: 'لا يمكنك حذف حسابك الخاص',
+        });
+      }
+
+      // Get existing user
+      const existingUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { department: true },
+      });
+
+      if (!existingUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'المستخدم غير موجود',
+        });
+      }
+
+      // Prevent deleting other company managers (only deputy managers can do this)
+      if (existingUser.role === UserRole.COMPANY_MANAGER && currentUser.role !== UserRole.COMPANY_MANAGER) {
+        return res.status(403).json({
+          success: false,
+          message: 'لا يمكنك حذف مدير الشركة',
+        });
+      }
+
+      // Soft delete - set isActive to false instead of actually deleting
+      const deletedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isActive: false,
+          username: `deleted_${existingUser.username}_${Date.now()}`, // Make username unique
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          department: { select: { id: true, name: true } },
+        },
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        message: 'تم حذف المستخدم بنجاح',
+        data: { user: deletedUser },
+      };
+
+      return res.status(200).json(response);
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'حدث خطأ في حذف المستخدم',
+        data: { error: error.message },
+      });
+    }
+  }
+);
+
 export default router;

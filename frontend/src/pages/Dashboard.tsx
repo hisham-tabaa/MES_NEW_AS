@@ -125,10 +125,10 @@ const Dashboard: React.FC = () => {
       {/* Welcome message */}
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg shadow-sm p-6 text-white">
         <h1 className="text-2xl font-bold">
-          مرحباً بك، {user?.firstName}!
+          {t('dashboard.welcome', { firstName: user?.firstName || '' })}
         </h1>
         <p className="mt-1 text-primary-100">
-          إليك ما يحدث مع طلبات الصيانة اليوم.
+          {t('dashboard.welcomeSubtitle')}
         </p>
       </div>
 
@@ -141,10 +141,10 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">
-                تنبيه: لديك {overdueRequests.length} طلب متأخر
+                {t('dashboard.overdueAlert', { count: overdueRequests.length })}
               </h3>
               <div className="mt-2 text-sm text-red-700">
-                <p>الطلبات التالية تجاوزت المدة المحددة وتحتاج إلى اهتمام فوري:</p>
+                <p>{t('dashboard.overdueDescription')}</p>
                 <ul className="list-disc list-inside mt-1 space-y-1">
                   {overdueRequests.slice(0, 3).map((req) => (
                     <li key={req.id}>
@@ -155,14 +155,14 @@ const Dashboard: React.FC = () => {
                         {req.requestNumber}
                       </Link>
                       {' - '}{req.customer.name}
-                      {' - '}{Math.floor((new Date().getTime() - new Date(req.slaDueDate || req.createdAt).getTime()) / (1000 * 60 * 60 * 24))} أيام تأخير
+                      {' - '}{Math.floor((new Date().getTime() - new Date(req.slaDueDate || req.createdAt).getTime()) / (1000 * 60 * 60 * 24))} {t('dashboard.daysOverdue')}
                     </li>
                   ))}
                 </ul>
                 {overdueRequests.length > 3 && (
                   <p className="mt-1">
                     <Link to="/requests?isOverdue=true" className="font-medium underline hover:text-red-900">
-                      عرض جميع الطلبات المتأخرة ({overdueRequests.length})
+                      {t('dashboard.viewAllOverdue', { count: overdueRequests.length })}
                     </Link>
                   </p>
                 )}
@@ -204,16 +204,16 @@ const Dashboard: React.FC = () => {
       <div className="card">
         <div className="card-header">
           <h3 className="text-lg leading-6 font-medium text-gray-900">
-            الطلبات الحديثة
+            {t('dashboard.recentRequests')}
           </h3>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            أحدث طلبات الصيانة في النظام
+            {t('dashboard.recentRequestsDesc')}
           </p>
         </div>
         <div className="card-content p-0">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="text-gray-500">جاري التحميل...</div>
+              <div className="text-gray-500">{t('dashboard.loading')}</div>
             </div>
           ) : recentRequests.length > 0 ? (
             <div className="overflow-hidden">
@@ -221,22 +221,22 @@ const Dashboard: React.FC = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      رقم الطلب
+                      {t('dashboard.table.number')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      العميل
+                      {t('dashboard.table.client')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      المنتج
+                      {t('dashboard.table.product')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      الحالة
+                      {t('dashboard.table.status')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      الأولوية
+                      {t('dashboard.table.priority')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      تاريخ الإنشاء
+                      {t('dashboard.table.created')}
                     </th>
                   </tr>
                 </thead>
@@ -252,7 +252,7 @@ const Dashboard: React.FC = () => {
                         {request.customer.name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {request.product?.name || 'غير محدد'}
+                        {request.product?.name || t('dashboard.undefined')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={getStatusBadge(request.status)}>
@@ -274,20 +274,20 @@ const Dashboard: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center justify-center py-8">
-              <div className="text-gray-500">لا توجد طلبات</div>
+              <div className="text-gray-500">{t('dashboard.noRequests')}</div>
             </div>
           )}
         </div>
         <div className="card-footer">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-700">
-              عرض {recentRequests.length} من {stats?.totalRequests || 0} طلب
+              {t('dashboard.showingRequests', { count: recentRequests.length, total: stats?.totalRequests || 0 })}
             </p>
             <Link
               to="/requests"
               className="text-sm font-medium text-primary-600 hover:text-primary-500"
             >
-              عرض جميع الطلبات ←
+              {t('dashboard.viewAllRequests')}
             </Link>
           </div>
         </div>
@@ -303,8 +303,8 @@ const Dashboard: React.FC = () => {
             <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mx-auto group-hover:bg-primary-200 transition-colors duration-200">
               <ClipboardDocumentListIcon className="w-6 h-6 text-primary-600" />
             </div>
-            <h3 className="mt-4 text-sm font-medium text-gray-900">طلب جديد</h3>
-            <p className="mt-1 text-sm text-gray-500">إنشاء طلب صيانة جديد</p>
+            <h3 className="mt-4 text-sm font-medium text-gray-900">{t('dashboard.quickActions.newRequest')}</h3>
+            <p className="mt-1 text-sm text-gray-500">{t('dashboard.quickActions.newRequestDesc')}</p>
           </div>
         </Link>
 
@@ -316,8 +316,8 @@ const Dashboard: React.FC = () => {
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto group-hover:bg-green-200 transition-colors duration-200">
               <ClipboardDocumentListIcon className="w-6 h-6 text-green-600" />
             </div>
-            <h3 className="mt-4 text-sm font-medium text-gray-900">إدارة العملاء</h3>
-            <p className="mt-1 text-sm text-gray-500">عرض وإدارة العملاء</p>
+            <h3 className="mt-4 text-sm font-medium text-gray-900">{t('dashboard.quickActions.clients')}</h3>
+            <p className="mt-1 text-sm text-gray-500">{t('dashboard.quickActions.clientsDesc')}</p>
           </div>
         </Link>
 
@@ -329,8 +329,8 @@ const Dashboard: React.FC = () => {
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto group-hover:bg-purple-200 transition-colors duration-200">
               <ClipboardDocumentListIcon className="w-6 h-6 text-purple-600" />
             </div>
-            <h3 className="mt-4 text-sm font-medium text-gray-900">التقارير</h3>
-            <p className="mt-1 text-sm text-gray-500">عرض التحليلات والتقارير</p>
+            <h3 className="mt-4 text-sm font-medium text-gray-900">{t('dashboard.quickActions.reports')}</h3>
+            <p className="mt-1 text-sm text-gray-500">{t('dashboard.quickActions.reportsDesc')}</p>
           </div>
         </Link>
 
@@ -342,8 +342,8 @@ const Dashboard: React.FC = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto group-hover:bg-orange-200 transition-colors duration-200">
               <ClipboardDocumentListIcon className="w-6 h-6 text-orange-600" />
             </div>
-            <h3 className="mt-4 text-sm font-medium text-gray-900">الملف الشخصي</h3>
-            <p className="mt-1 text-sm text-gray-500">تحديث إعدادات الملف الشخصي</p>
+            <h3 className="mt-4 text-sm font-medium text-gray-900">{t('dashboard.quickActions.profile')}</h3>
+            <p className="mt-1 text-sm text-gray-500">{t('dashboard.quickActions.profileDesc')}</p>
           </div>
         </Link>
       </div>

@@ -15,9 +15,9 @@ router.get('/', requestController.getRequests);
 /**
  * @route   POST /api/requests
  * @desc    Create new request
- * @access  Private (All roles can create requests)
+ * @access  Private (Managers and supervisors only, not technicians)
  */
-router.post('/', requestController.createRequest);
+router.post('/', requireRoles([UserRole.COMPANY_MANAGER, UserRole.DEPUTY_MANAGER, UserRole.DEPARTMENT_MANAGER, UserRole.SECTION_SUPERVISOR]), requestController.createRequest);
 
 /**
  * @route   GET /api/requests/:id

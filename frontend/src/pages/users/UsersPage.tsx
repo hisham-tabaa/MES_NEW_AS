@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usersAPI, departmentsAPI } from '../../services/api';
 import { User, Department, UserRole } from '../../types';
-// import { useI18n } from '../../contexts/I18nContext';
+import { useI18n } from '../../contexts/I18nContext';
 
 const UsersPage: React.FC = () => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -16,11 +17,12 @@ const UsersPage: React.FC = () => {
   });
 
   const roleLabels: Record<UserRole, string> = {
-    COMPANY_MANAGER: 'مدير الشركة',
-    DEPUTY_MANAGER: 'نائب المدير',
-    DEPARTMENT_MANAGER: 'مدير قسم',
-    SECTION_SUPERVISOR: 'مشرف قسم',
-    TECHNICIAN: 'فني',
+  COMPANY_MANAGER: t('users.roles.companyManager'),
+  DEPUTY_MANAGER: t('users.roles.deputyManager'),
+  DEPARTMENT_MANAGER: t('users.roles.departmentManager'),
+  SECTION_SUPERVISOR: t('users.roles.sectionSupervisor'),
+  TECHNICIAN: t('users.roles.technician'),
+  WAREHOUSE_KEEPER: t('users.roles.warehouseKeeper'),
   };
 
   const loadUsers = useCallback(async () => {
@@ -86,46 +88,49 @@ const UsersPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">إدارة المستخدمين</h1>
-          <p className="mt-2 text-sm text-gray-700">عرض وإدارة مستخدمي النظام</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('users.title')}</h1>
+          <p className="mt-2 text-sm text-gray-700">{t('users.subtitle')}</p>
         </div>
         <Link to="/users/new" className="btn-primary">
-          إضافة مستخدم جديد
+          {t('users.add')}
         </Link>
       </div>
 
       <div className="card shadow-medium">
         <div className="card-header">
-          <h2>قائمة المستخدمين</h2>
-          <p>البحث والتصفية في المستخدمين</p>
+          <h2>{t('users.list.title')}</h2>
+          <p>{t('users.list.subtitle')}</p>
         </div>
         <div className="card-content space-y-6">
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="form-group">
-              <label className="form-label">الدور</label>
+              <label className="form-label">{t('users.filters.role')}</label>
               <select
                 value={filters.role}
                 onChange={(e) => setFilters({ ...filters, role: e.target.value })}
                 className="select-field"
+                title={t('users.role') || 'Role'}
               >
-                <option value="">جميع الأدوار</option>
-                {Object.entries(roleLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
+                <option value="">{t('users.filters.allRoles')}</option>
+                <option value={UserRole.COMPANY_MANAGER}>{t('users.roles.companyManager')}</option>
+                <option value={UserRole.DEPUTY_MANAGER}>{t('users.roles.deputyManager')}</option>
+                <option value={UserRole.DEPARTMENT_MANAGER}>{t('users.roles.departmentManager')}</option>
+                <option value={UserRole.SECTION_SUPERVISOR}>{t('users.roles.sectionSupervisor')}</option>
+                <option value={UserRole.TECHNICIAN}>{t('users.roles.technician')}</option>
+                <option value={UserRole.WAREHOUSE_KEEPER}>{t('users.roles.warehouseKeeper')}</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">القسم</label>
+              <label className="form-label">{t('users.filters.department')}</label>
               <select
                 value={filters.departmentId}
                 onChange={(e) => setFilters({ ...filters, departmentId: e.target.value })}
                 className="select-field"
+                title={t('users.department') || 'Department'}
               >
-                <option value="">جميع الأقسام</option>
+                <option value="">{t('users.filters.allDepartments')}</option>
                 {departments.map(dept => (
                   <option key={dept.id} value={dept.id}>
                     {dept.name}
@@ -135,15 +140,16 @@ const UsersPage: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">الحالة</label>
+              <label className="form-label">{t('users.filters.status')}</label>
               <select
                 value={filters.isActive}
                 onChange={(e) => setFilters({ ...filters, isActive: e.target.value })}
                 className="select-field"
+                title={t('users.status') || 'Status'}
               >
-                <option value="">الجميع</option>
-                <option value="true">نشط</option>
-                <option value="false">غير نشط</option>
+                <option value="">{t('users.filters.allStatus')}</option>
+                <option value="true">{t('users.filters.active')}</option>
+                <option value="false">{t('users.filters.inactive')}</option>
               </select>
             </div>
           </div>
@@ -152,7 +158,7 @@ const UsersPage: React.FC = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="text-blue-800">
-                <span className="font-semibold">{users.length}</span> مستخدم
+                <span className="font-semibold">{users.length}</span> {t('users.list.totalUsers')}
               </div>
               {loading && <div className="loading-spinner"></div>}
             </div>
@@ -169,15 +175,15 @@ const UsersPage: React.FC = () => {
           {loading ? (
             <div className="text-center py-12">
               <div className="loading-spinner mx-auto mb-4"></div>
-              <p className="text-gray-500">جاري تحميل المستخدمين...</p>
+              <p className="text-gray-500">{t('users.loading')}</p>
             </div>
           ) : users.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl text-gray-300 mb-4">👥</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">لا يوجد مستخدمون</h3>
-              <p className="text-gray-500 mb-4">لم يتم العثور على مستخدمين يطابقون المعايير المحددة</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('users.noUsersFound')}</h3>
+              <p className="text-gray-500 mb-4">{t('users.noUsersFoundDescription')}</p>
               <Link to="/users/new" className="btn-primary">
-                إضافة مستخدم جديد
+                {t('users.addUser')}
               </Link>
             </div>
           ) : (
@@ -187,13 +193,13 @@ const UsersPage: React.FC = () => {
                 <table className="min-w-full">
                   <thead>
                     <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">الاسم</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">اسم المستخدم</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">البريد الإلكتروني</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">الدور</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">القسم</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">الحالة</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">الإجراءات</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">{t('users.table.name')}</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">{t('users.table.username')}</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">{t('users.table.email')}</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">{t('users.table.role')}</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">{t('users.table.department')}</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">{t('users.table.status')}</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">{t('users.table.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -211,7 +217,7 @@ const UsersPage: React.FC = () => {
                         <td className="px-6 py-4 text-gray-700">{user.email}</td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {roleLabels[user.role as UserRole]}
+                            {roleLabels[user.role]}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-gray-700">
@@ -223,7 +229,7 @@ const UsersPage: React.FC = () => {
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {user.isActive ? 'نشط' : 'غير نشط'}
+                            {user.isActive ? t('users.active') : t('users.inactive')}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -235,7 +241,7 @@ const UsersPage: React.FC = () => {
                                 : 'text-green-600 hover:bg-green-50'
                             }`}
                           >
-                            {user.isActive ? 'إلغاء تنشيط' : 'تنشيط'}
+                            {user.isActive ? t('users.deactivate') : t('users.activate')}
                           </button>
                         </td>
                       </tr>
@@ -265,14 +271,14 @@ const UsersPage: React.FC = () => {
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {user.isActive ? 'نشط' : 'غير نشط'}
+                          {user.isActive ? t('users.active') : t('users.inactive')}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <div>
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">
-                          {roleLabels[user.role as UserRole]}
+                          {roleLabels[user.role]}
                         </span>
                         {user.department && (
                           <span className="text-gray-500">{user.department.name}</span>
@@ -286,7 +292,7 @@ const UsersPage: React.FC = () => {
                             : 'text-green-600 hover:bg-green-50'
                         }`}
                       >
-                        {user.isActive ? 'إلغاء تنشيط' : 'تنشيط'}
+                        {user.isActive ? t('users.deactivate') : t('users.activate')}
                       </button>
                     </div>
                   </div>

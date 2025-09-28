@@ -27,6 +27,8 @@ export const authenticateToken = async (
         id: true,
         username: true,
         email: true,
+        firstName: true,
+        lastName: true,
         role: true,
         departmentId: true,
         isActive: true,

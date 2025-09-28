@@ -28,7 +28,7 @@ const CreateUserPage: React.FC = () => {
     firstName: '',
     lastName: '',
     phone: '',
-    role: 'TECHNICIAN' as UserRole,
+    role: UserRole.TECHNICIAN,
     departmentId: '',
   });
 
@@ -82,11 +82,11 @@ const CreateUserPage: React.FC = () => {
   };
 
   const roleOptions = [
-    { value: 'TECHNICIAN', label: 'فني' },
-    { value: 'SECTION_SUPERVISOR', label: 'مشرف قسم' },
-    { value: 'DEPARTMENT_MANAGER', label: 'مدير قسم' },
-    { value: 'DEPUTY_MANAGER', label: 'نائب المدير' },
-    { value: 'COMPANY_MANAGER', label: 'مدير الشركة' },
+    { value: UserRole.TECHNICIAN, label: 'فني' },
+    { value: UserRole.SECTION_SUPERVISOR, label: 'مشرف قسم' },
+    { value: UserRole.DEPARTMENT_MANAGER, label: 'مدير قسم' },
+    { value: UserRole.DEPUTY_MANAGER, label: 'نائب المدير' },
+    { value: UserRole.COMPANY_MANAGER, label: 'مدير الشركة' },
   ];
 
   return (
@@ -194,6 +194,7 @@ const CreateUserPage: React.FC = () => {
                 onChange={handleChange}
                 className="select-field"
                 required
+                title="اختر الدور"
               >
                 {roleOptions.map(option => (
                   <option key={option.value} value={option.value}>
@@ -210,6 +211,7 @@ const CreateUserPage: React.FC = () => {
                 value={form.departmentId}
                 onChange={handleChange}
                 className="select-field"
+                title="اختر القسم"
               >
                 <option value="">اختر القسم (اختياري)</option>
                 {departments.map(dept => (
